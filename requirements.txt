@@ -2,3 +2,5 @@ fastapi
 uvicorn
 pytubefix
 jinja2
+pytest
+httpx
