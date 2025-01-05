@@ -60,6 +60,7 @@ async def get_available_streams(video_url: str):
     except Exception as e:
         return JSONResponse({"error": str(e)}, status_code=400)
 
+# Download by itag
 @app.get("/download")
 async def download(video_url: str, itag: int):
     try:
@@ -84,7 +85,8 @@ async def download(video_url: str, itag: int):
         )
     except Exception as e:
         return {"error": str(e)}
-    
+
+# Dovload video only
 @app.get("/download_video")
 async def download_video(video_url: str):
     try:
@@ -95,7 +97,8 @@ async def download_video(video_url: str):
         
     except Exception as e:
         return {"error": str(e)}
-    
+
+# Download audio only
 @app.get("/download_audio")
 async def download_audio(video_url: str):
     try:
