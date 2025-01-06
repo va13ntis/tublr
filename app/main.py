@@ -25,7 +25,7 @@ async def home(request: Request):
 @app.get("/available_streams")
 async def get_available_streams(video_url: str):
     try:
-        yt = YouTube(video_url, use_po_token=True)
+        yt = YouTube(video_url)
         video_streams = []
         audio_streams = []
 
@@ -87,7 +87,7 @@ async def get_available_streams(video_url: str):
 @app.get("/download")
 async def download(video_url: str, itag: int):
     try:
-        yt = YouTube(video_url, use_po_token=True)
+        yt = YouTube(video_url)
         stream = yt.streams.get_by_itag(itag)
 
         if not stream:
@@ -115,7 +115,7 @@ async def download(video_url: str, itag: int):
 @app.get("/download_video")
 async def download_video(video_url: str):
     try:
-        yt = YouTube(video_url, use_po_token=True)
+        yt = YouTube(video_url)
         stream = yt.streams.get_highest_resolution()
 
         return prepare_response(stream)
@@ -128,7 +128,7 @@ async def download_video(video_url: str):
 @app.get("/download_audio")
 async def download_audio(video_url: str):
     try:
-        yt = YouTube(video_url, use_po_token=True)
+        yt = YouTube(video_url)
         stream = yt.streams.get_audio_only()
 
         return prepare_response(stream)
