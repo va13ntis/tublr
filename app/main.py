@@ -96,8 +96,8 @@ async def download(video_url: str, itag: int):
         buffer.seek(0)
 
         headers = {
-            "Content-Disposition": f"attachment; filename={sanitize_filename(yt.title)}" + \
-                ".{'mp4' if stream.includes_video_track else 'mp3'}"
+            "Content-Disposition":
+            f"attachment; filename={sanitize_filename(yt.title)}.{'mp4' if stream.includes_video_track else 'mp3'}"
         }
 
         return StreamingResponse(
@@ -145,8 +145,8 @@ def prepare_response(stream):
     buffer.seek(0)
 
     headers = {
-        "Content-Disposition": f"attachment; filename={sanitize_filename(stream.title)}" + \
-            ".{'mp4' if stream.includes_video_track else 'mp3'}"
+        "Content-Disposition":
+        f"attachment; filename={sanitize_filename(stream.title)}.{'mp4' if stream.includes_video_track else 'mp3'}"
     }
 
     return StreamingResponse(
