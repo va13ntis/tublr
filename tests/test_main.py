@@ -22,14 +22,14 @@ def test_get_available_streams(video_url):
     data = response.json()
     assert "title" in data
     assert "streams" in data
-    assert len(data["streams"]) > 0
+    assert len(data["video_streams"]) > 0
 
 def test_download_video(video_url):
     """Test the video download endpoint."""
     # Fetch video details to get a valid ITAG
     response = client.get(f"/available_streams?video_url={video_url}")
     video_data = response.json()
-    itag = video_data["streams"][0]["itag"]  # Select the first available stream
+    itag = video_data["video_streams"][0]["itag"]  # Select the first available stream
     
     # Test the download endpoint
     download_response = client.get(f"/download?url={video_url}&itag={itag}", stream=True)
@@ -48,7 +48,7 @@ def test_audio_download(video_url):
     # Fetch video details to get a valid ITAG for audio
     response = client.get(f"/available_streams?video_url={video_url}")
     video_data = response.json()
-    audio_stream = next((s for s in video_data["streams"] if s["mime_type"].startswith("audio/")), None)
+    audio_stream = next((s for s in video_data["video_streams"] if s["mime_type"].startswith("audio/")), None)
     assert audio_stream is not None
 
     # Test the download endpoint for audio
