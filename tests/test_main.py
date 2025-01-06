@@ -20,8 +20,8 @@ def test_get_available_streams(video_url):
     response = client.get(f"/available_streams?video_url={video_url}")
     assert response.status_code == 200
     data = response.json()
-    assert "title" in data
-    assert "streams" in data
+    assert "thumbnail_url" in data
+    assert "video_streams" in data
     assert len(data["video_streams"]) > 0
 
 def test_download_video(video_url):
