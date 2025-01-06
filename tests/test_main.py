@@ -17,7 +17,7 @@ def test_homepage():
 
 def test_get_available_streams(video_url):
     """Test the video details fetch endpoint."""
-    response = client.get("/available_streams?url={video_url}")
+    response = client.get(f"/available_streams?url={video_url}")
     assert response.status_code == 200
     data = response.json()
     assert "title" in data
@@ -27,7 +27,7 @@ def test_get_available_streams(video_url):
 def test_download_video(video_url):
     """Test the video download endpoint."""
     # Fetch video details to get a valid ITAG
-    response = client.get("/available_streams?url={video_url}")
+    response = client.get(f"/available_streams?url={video_url}")
     video_data = response.json()
     itag = video_data["streams"][0]["itag"]  # Select the first available stream
     
@@ -39,14 +39,14 @@ def test_download_video(video_url):
 def test_invalid_video_url():
     """Test the behavior for invalid video URLs."""
     invalid_url = "https://www.youtube.com/watch?v=invalid"
-    response = client.get("/available_streams?url={video_url}")
+    response = client.get(f"/available_streams?url={video_url}")
     assert response.status_code == 400
     assert "error" in response.json()
 
 def test_audio_download(video_url):
     """Test audio-only download functionality."""
     # Fetch video details to get a valid ITAG for audio
-    response = client.get("/available_streams?url={video_url}")
+    response = client.get(f"/available_streams?url={video_url}")
     video_data = response.json()
     audio_stream = next((s for s in video_data["streams"] if s["mime_type"].startswith("audio/")), None)
     assert audio_stream is not None
