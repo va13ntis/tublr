@@ -4,3 +4,4 @@ pytubefix
 jinja2
 pytest
 httpx
+pytest-mock
