@@ -22,6 +22,7 @@ def test_get_available_streams(video_url):
     data = response.json()
     assert "thumbnail_url" in data
     assert "video_streams" in data
+    assert "audio_streams" in data
     assert len(data["video_streams"]) > 0
 
 def test_download_video(video_url):
