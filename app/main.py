@@ -32,32 +32,50 @@ async def get_available_streams(video_url: str):
             if stream.resolution is None:
                 continue
 
-            video_streams.append({
-                "resolution": stream.resolution or "N/A",
-                "video_codec": stream.video_codec or "N/A",
-                "includes_audio": stream.is_progressive,  # True if includes audio
-                "itag": stream.itag,
-            })
+            video_streams.append(
+                {
+                    "resolution": stream.resolution or "N/A",
+                    "video_codec": stream.video_codec or "N/A",
+                    "includes_audio": stream.is_progressive,  # True if includes audio
+                    "itag": stream.itag,
+                }
+            )
 
         # Filter audio streams
         for stream in yt.streams.filter(type="audio"):
-            audio_streams.append({
-                "bitrate": stream.abr or "N/A",
-                "audio_codec": stream.audio_codec or "N/A",
-                "itag": stream.itag,
-            })
+            audio_streams.append(
+                {
+                    "bitrate": stream.abr or "N/A",
+                    "audio_codec": stream.audio_codec or "N/A",
+                    "itag": stream.itag,
+                }
+            )
 
         # Sort video streams by resolution descending
-        video_streams = sorted(video_streams, key=lambda x: int(x["resolution"].replace("p", "")) if x["resolution"] != "N/A" else 0, reverse=True)
+        video_streams = sorted(
+            video_streams,
+            key=lambda x: (
+                int(x["resolution"].replace("p", "")) if x["resolution"] != "N/A" else 0
+            ),
+            reverse=True,
+        )
 
         # Sort audio streams by bitrate descending
-        audio_streams = sorted(audio_streams, key=lambda x: int(x["bitrate"].replace("kbps", "")) if x["bitrate"] != "N/A" else 0, reverse=True)
+        audio_streams = sorted(
+            audio_streams,
+            key=lambda x: (
+                int(x["bitrate"].replace("kbps", "")) if x["bitrate"] != "N/A" else 0
+            ),
+            reverse=True,
+        )
 
-        return JSONResponse({
-            "thumbnail_url": yt.thumbnail_url,
-            "video_streams": video_streams,
-            "audio_streams": audio_streams,
-        })
+        return JSONResponse(
+            {
+                "thumbnail_url": yt.thumbnail_url,
+                "video_streams": video_streams,
+                "audio_streams": audio_streams,
+            }
+        )
 
     except Exception as e:
         return JSONResponse({"error": str(e)}, status_code=400)
@@ -98,7 +116,7 @@ async def download_video(video_url: str):
         stream = yt.streams.get_highest_resolution()
 
         return prepare_response(stream)
-        
+
     except Exception as e:
         return {"error": str(e)}
 
@@ -111,7 +129,7 @@ async def download_audio(video_url: str):
         stream = yt.streams.get_audio_only()
 
         return prepare_response(stream)
-        
+
     except Exception as e:
         return {"error": str(e)}
 
@@ -120,7 +138,7 @@ async def download_audio(video_url: str):
 def prepare_response(stream):
     if not stream:
         raise HTTPException(status_code=404, detail="Stream not found.")
-        
+
     buffer = io.BytesIO()
     stream.stream_to_buffer(buffer)
     buffer.seek(0)
@@ -131,12 +149,12 @@ def prepare_response(stream):
 
     return StreamingResponse(
         buffer,
-            media_type="video/mp4" if stream.includes_video_track else "audio/mp3",
-            headers=headers,
-        )
+        media_type="video/mp4" if stream.includes_video_track else "audio/mp3",
+        headers=headers,
+    )
 
 
 # Sanitize filename using the improved expression
 def sanitize_filename(filename):
     # This pattern allows letters, digits, spaces, and other specified characters
-    return re.sub(r'[^A-Za-z0-9\s\-_~,;:\[\]\(\)\.]', '', filename)
+    return re.sub(r"[^A-Za-z0-9\s\-_~,;:\[\]\(\)\.]", "", filename)
