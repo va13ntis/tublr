@@ -17,7 +17,7 @@ def test_homepage():
 
 def test_get_available_streams(video_url):
     """Test the video details fetch endpoint."""
-    response = client.get("/available_streams?video_url=https%3A%2F%2Fwww.youtube.com%2Fwatch%3Fv%3DKPtTzhS0TEs")
+    response = client.get(f"/available_streams?video_url={video_url}")
     assert response.status_code == 200
     data = response.json()
     assert "thumbnail_url" in data
