@@ -13,7 +13,7 @@ def test_homepage():
     """Test if the homepage loads correctly."""
     response = client.get("/")
     assert response.status_code == 200
-    assert b"Welcome to the YouTube Downloader" in response.content
+    assert b"YouTube downloader" in response.content
 
 def test_get_available_streams(video_url):
     """Test the video details fetch endpoint."""
