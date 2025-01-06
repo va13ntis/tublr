@@ -5,12 +5,14 @@ from fastapi import FastAPI, Request, HTTPException
 from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
 from fastapi.templating import Jinja2Templates
 from pytubefix import YouTube
+from pathlib import Path
 
 # Initialize FastAPI app
 app = FastAPI()
 
 # Initialize Jinja2 templates
-templates = Jinja2Templates(directory="templates")
+BASE_DIR = Path(__file__).resolve().parent
+templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
 
 
 # Serve the HTML page
