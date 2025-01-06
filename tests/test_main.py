@@ -14,7 +14,7 @@ async def test_read_root():
 
 
 @pytest.mark.asyncio
-async def test_video_details():
+async def test_available_streams():
     async with AsyncClient(app=app, base_url="http://test") as client:
         response = await client.get("/video?id=get_available_streams")
     assert response.status_code == 200
@@ -31,6 +31,6 @@ async def test_invalid_video_id():
 
 def test_mock_video_details(mocker):
     mock_get_video = mocker.patch("pytubefix.YouTube.streams", return_value=[])
-    response = app.get_video_details("mock_id")
+    response = app.get_available_streams("mock_id")
     assert mock_get_video.called
     assert response == []
