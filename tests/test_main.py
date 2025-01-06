@@ -16,7 +16,7 @@ async def test_read_root():
 @pytest.mark.asyncio
 async def test_video_details():
     async with AsyncClient(app=app, base_url="http://test") as client:
-        response = await client.get("/video?id=sample_video_id")
+        response = await client.get("/video?id=get_available_streams")
     assert response.status_code == 200
     assert "itag" in response.json()[0]  # Adjust based on your response structure
 
