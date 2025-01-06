@@ -12,10 +12,12 @@ app = FastAPI()
 # Initialize Jinja2 templates
 templates = Jinja2Templates(directory="templates")
 
+
 # Serve the HTML page
 @app.get("/", response_class=HTMLResponse)
 async def home(request: Request):
     return templates.TemplateResponse("index.html", {"request": request})
+
 
 # Get available video qualities
 @app.get("/available_streams")
@@ -60,6 +62,7 @@ async def get_available_streams(video_url: str):
     except Exception as e:
         return JSONResponse({"error": str(e)}, status_code=400)
 
+
 # Download by itag
 @app.get("/download")
 async def download(video_url: str, itag: int):
@@ -86,6 +89,7 @@ async def download(video_url: str, itag: int):
     except Exception as e:
         return {"error": str(e)}
 
+
 # Dovload video only
 @app.get("/download_video")
 async def download_video(video_url: str):
@@ -98,6 +102,7 @@ async def download_video(video_url: str):
     except Exception as e:
         return {"error": str(e)}
 
+
 # Download audio only
 @app.get("/download_audio")
 async def download_audio(video_url: str):
@@ -109,7 +114,8 @@ async def download_audio(video_url: str):
         
     except Exception as e:
         return {"error": str(e)}
-    
+
+
 # Prepare response
 def prepare_response(stream):
     if not stream:
@@ -128,7 +134,8 @@ def prepare_response(stream):
             media_type="video/mp4" if stream.includes_video_track else "audio/mp3",
             headers=headers,
         )
-    
+
+
 # Sanitize filename using the improved expression
 def sanitize_filename(filename):
     # This pattern allows letters, digits, spaces, and other specified characters
