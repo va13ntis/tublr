@@ -90,28 +90,12 @@ async def download(video_url: str, itag: int):
         yt = YouTube(video_url)
         stream = yt.streams.get_by_itag(itag)
 
-        if not stream:
-            raise HTTPException(status_code=404, detail="Stream not found.")
-
-        buffer = io.BytesIO()
-        stream.stream_to_buffer(buffer)
-        buffer.seek(0)
-
-        headers = {
-            "Content-Disposition":
-            f"attachment; filename={sanitize_filename(yt.title)}.{'mp4' if stream.includes_video_track else 'mp3'}"
-        }
-
-        return StreamingResponse(
-            buffer,
-            media_type="video/mp4" if stream.includes_video_track else "audio/mp3",
-            headers=headers,
-        )
+        prepare_response(stream)
     except Exception as e:
         return {"error": str(e)}
 
 
-# Dovload video only
+# Download video only
 @app.get("/download_video")
 async def download_video(video_url: str):
     try:
@@ -161,4 +145,4 @@ def prepare_response(stream):
 # Sanitize filename using the improved expression
 def sanitize_filename(filename):
     # This pattern allows letters, digits, spaces, and other specified characters
-    return re.sub(r"[^A-Za-z0-9\s\-_~,;:\[\]\(\)\.]", "", filename)
+    return re.sub(r"[^A-Za-z0-9\s\-_~,;:\[\]().]", "", filename)
