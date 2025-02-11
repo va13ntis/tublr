@@ -14,19 +14,8 @@ on:
     branches: [ "main" ]
 
 jobs:
-  integration:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      - name: Python application CI
-        uses: ./.github/workflows/tublr-ci.yml
-    permissions:
-      contents: read
-      checks: write
-    
-  build:
-    needs: [integration]  
-    
+ push_to_registry:
+    name: Push Docker image to Docker Hub
     runs-on: ubuntu-latest
     permissions:
       packages: write
