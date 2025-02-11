@@ -5,13 +5,9 @@ name: Docker
 # separate terms of service, privacy policy, and support
 # documentation.
 
-on:  
-  push:
-    branches: [ "main" ]
-    # Publish semver tags as releases.
-    tags: [ 'v*.*.*' ]
-  pull_request:
-    branches: [ "main" ]
+on:
+  release:
+    types: [published]
 
 jobs:
  push_to_registry:
@@ -46,7 +42,7 @@ jobs:
           context: .
           file: ./dockerfile
           push: true
-          tags: latest
+          tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
 
       - name: Generate artifact attestation
