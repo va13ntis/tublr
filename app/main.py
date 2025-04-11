@@ -1,4 +1,5 @@
 import io
+import logging
 import re
 
 from fastapi import FastAPI, Request, HTTPException
@@ -6,6 +7,10 @@ from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
 from fastapi.templating import Jinja2Templates
 from pytubefix import YouTube
 from pathlib import Path
+
+FORMAT = '%(asctime)s %(message)s'
+logging.basicConfig(format=FORMAT)
+logger = logging.getLogger(__name__)
 
 # Initialize FastAPI app
 app = FastAPI()
@@ -25,9 +30,13 @@ async def home(request: Request):
 @app.get("/available_streams")
 async def get_available_streams(video_url: str):
     try:
+        logger.info(f"Trying to get available streams from {video_url}")
+
         yt = YouTube(video_url)
         video_streams = []
         audio_streams = []
+
+        logger.info(f"Found {len(yt.streams)} streams")
 
         # Filter video streams
         for stream in yt.streams.filter(type="video"):
@@ -80,6 +89,7 @@ async def get_available_streams(video_url: str):
         )
 
     except Exception as e:
+        logger.error(e)
         return JSONResponse({"error": str(e)}, status_code=400)
 
 
@@ -92,6 +102,7 @@ async def download(video_url: str, itag: int):
 
         prepare_response(stream)
     except Exception as e:
+        logger.error(e)
         return {"error": str(e)}
 
 
@@ -105,6 +116,7 @@ async def download_video(video_url: str):
         return prepare_response(stream)
 
     except Exception as e:
+        logger.error(e)
         return {"error": str(e)}
 
 
@@ -118,6 +130,7 @@ async def download_audio(video_url: str):
         return prepare_response(stream)
 
     except Exception as e:
+        logger.error(e)
         return {"error": str(e)}
 
 
