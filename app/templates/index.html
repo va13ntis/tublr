@@ -130,7 +130,7 @@
             errorDiv.innerHTML = ""; // Clear previous errors
 
             try {
-                const res = await fetch(`/available_streams?video_url=${encodeURIComponent(videoUrl)}`);
+                const res = await fetch(`available_streams?video_url=${encodeURIComponent(videoUrl)}`);
                 const data = await res.json();
 
                 if (data.error) {
@@ -178,15 +178,15 @@
         };
 
         async function download(videoUrl, itag) {
-            window.location = `/download?video_url=${encodeURIComponent(videoUrl)}&itag=${itag}`;
+            window.location = `download?video_url=${encodeURIComponent(videoUrl)}&itag=${itag}`;
         }
 
         async function download_video(videoUrl) {
-            window.location = `/download_video?video_url=${encodeURIComponent(videoUrl)}`;
+            window.location = `download_video?video_url=${encodeURIComponent(videoUrl)}`;
         }
 
         async function download_audio(videoUrl) {
-            window.location = `/download_audio?video_url=${encodeURIComponent(videoUrl)}`;
+            window.location = `download_audio?video_url=${encodeURIComponent(videoUrl)}`;
         }
     </script>
 </body>
