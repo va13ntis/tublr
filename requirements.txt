@@ -1,6 +1,9 @@
-fastapi[standard]
+fastapi[standard]~=0.115.12
 pydantic
-pytubefix
+pytubefix~=8.12.3
 jinja2
 httpx
-pathlib
+pathlib~=1.0.1
+sqlalchemy~=2.0.40
+pyotp~=2.9.0
+qrcode[pil]~=8.1
