@@ -9,7 +9,7 @@ from pytubefix import YouTube
 from sqlalchemy.orm import Session
 
 from app.auth import login_page, login
-from app.db import get_db, User
+from app.db import get_db, User, RecognizedIP
 from app.shared import templates
 
 FORMAT = '%(asctime)s %(message)s'
@@ -31,9 +31,9 @@ async def ip_check_middleware(request: Request, call_next):
     user_id = request.cookies.get("user_id")
 
     if user_id:
-        ip_entry = db.query(User).filter_by(user_id=user_id, ip_address=client_ip).first()
+        ip_entry = db.query(RecognizedIP).filter_by(user_id=user_id, ip_address=client_ip).first()
         if ip_entry:
-            ip_entry.last_seen = datetime.utcnow()
+            ip_entry.last_seen = datetime.now()
             db.commit()
             return await call_next(request)
 
@@ -43,7 +43,6 @@ async def ip_check_middleware(request: Request, call_next):
 
 @app.get("/login", response_class=HTMLResponse)(login_page)
 @app.post("/login")(login)
-# @app.get("/register", response_class=HTMLResponse)(register)
 
 
 # Serve the HTML page

@@ -1,6 +1,6 @@
 # db.py
 import os
-from sqlalchemy import create_engine, Column, Integer, String, DateTime
+from sqlalchemy import create_engine, Column, Integer, String, DateTime, ForeignKey
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, relationship
 from datetime import datetime
@@ -15,12 +15,16 @@ class User(Base):
     id = Column(Integer, primary_key=True, index=True)
     username = Column(String, unique=True, index=True)
     otp = Column(String)  # In real life, better to hash it
-    created_at = Column(DateTime, default=datetime.utcnow)
-    client_ip_address = Column(String, index=True)
-    last_seen = Column(DateTime, default=datetime.utcnow)
-    otp_secret = Column(String, nullable=True)
-    last_update = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=datetime.now)
+    recognized_ips = relationship("RecognizedIP", back_populates="user")
 
+class RecognizedIP(Base):
+    __tablename__ = "recognized_ips"
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"))
+    ip_address = Column(String, index=True)
+    last_seen = Column(DateTime, default=datetime.now)
+    user = relationship("User", back_populates="recognized_ips")
 
 Base.metadata.create_all(bind=engine)
 
