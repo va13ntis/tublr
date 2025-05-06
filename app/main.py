@@ -1,12 +1,16 @@
 import io
 import logging
 import re
+from datetime import datetime
 
 from fastapi import FastAPI, Request, HTTPException
-from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
-from fastapi.templating import Jinja2Templates
+from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse, RedirectResponse
 from pytubefix import YouTube
-from pathlib import Path
+from sqlalchemy.orm import Session
+
+from app.auth import login_page, login
+from app.db import get_db, User, RecognizedIP
+from app.shared import templates
 
 FORMAT = '%(asctime)s %(message)s'
 logging.basicConfig(format=FORMAT)
@@ -15,9 +19,30 @@ logger = logging.getLogger(__name__)
 # Initialize FastAPI app
 app = FastAPI()
 
-# Initialize Jinja2 templates
-BASE_DIR = Path(__file__).resolve().parent
-templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
+
+@app.middleware("http")
+async def ip_check_middleware(request: Request, call_next):
+    public_paths = ["/login", "/static", "/available_streams", "/download", "/download_video", "/download_audio"]
+    if any(request.url.path.startswith(path) for path in public_paths):
+        return await call_next(request)
+
+    db: Session = next(get_db())
+    client_ip = request.client.host
+    user_id = request.cookies.get("user_id")
+
+    if user_id:
+        ip_entry = db.query(RecognizedIP).filter_by(user_id=user_id, ip_address=client_ip).first()
+        if ip_entry:
+            ip_entry.last_seen = datetime.now()
+            db.commit()
+            return await call_next(request)
+
+    # No recognized IP — redirect to login
+    return RedirectResponse(url="/login")
+
+
+@app.get("/login", response_class=HTMLResponse)(login_page)
+@app.post("/login")(login)
 
 
 # Serve the HTML page
