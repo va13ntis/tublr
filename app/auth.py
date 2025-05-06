@@ -1,15 +1,11 @@
 import base64
 import io
-import os
-import secrets
 from datetime import datetime
-from captcha.image import ImageCaptcha
+
 import pyotp
 import qrcode
 from fastapi import Request, Form, Depends
 from fastapi.responses import HTMLResponse, RedirectResponse
-from pyotp import random_base32
-
 from sqlalchemy.orm import Session
 
 from app.db import get_db, User, RecognizedIP
