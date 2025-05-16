@@ -264,10 +264,10 @@ def image_to_str(img):
     return base64.b64encode(buffered.getvalue()).decode()
 
 
-if __name__=="__main__":
-    uvicorn.run("main:app",
-                host="0.0.0.0",
-                port=8000,
-                reload=True,
-                log_level="debug",
-                workers=1)
+#if __name__=="__main__":
+#    uvicorn.run("main:app",
+#                host="0.0.0.0",
+#                port=8000,
+#                reload=True,
+#                log_level="debug",
+#                workers=1)
