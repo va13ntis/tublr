@@ -1,23 +1,34 @@
+import base64
 import io
 import logging
 import re
 from datetime import datetime
+from pathlib import Path
 
-from fastapi import FastAPI, Request, HTTPException
-from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse, RedirectResponse
+import pyotp
+import qrcode
+import uvicorn
+from fastapi import FastAPI, HTTPException, Depends, Form
+from fastapi.responses import JSONResponse, StreamingResponse
+from fastapi.staticfiles import StaticFiles
 from pytubefix import YouTube
 from sqlalchemy.orm import Session
+from starlette.requests import Request
+from starlette.responses import RedirectResponse, HTMLResponse
+from starlette.templating import Jinja2Templates
 
-from app.auth import login_page, login
-from app.db import get_db, User, RecognizedIP
-from app.shared import templates
+from app.db import get_db, RecognizedIP, User
 
 FORMAT = '%(asctime)s %(message)s'
 logging.basicConfig(format=FORMAT)
 logger = logging.getLogger(__name__)
 
-# Initialize FastAPI app
+BASE_DIR = Path(__file__).resolve().parent
 app = FastAPI()
+
+app.mount("/static", StaticFiles(directory=str(BASE_DIR / "static")), name="static")
+
+templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
 
 
 @app.middleware("http")
@@ -41,14 +52,49 @@ async def ip_check_middleware(request: Request, call_next):
     return RedirectResponse(url="/login")
 
 
-@app.get("/login", response_class=HTMLResponse)(login_page)
-@app.post("/login")(login)
-
-
-# Serve the HTML page
 @app.get("/", response_class=HTMLResponse)
 async def home(request: Request):
     return templates.TemplateResponse("index.html", {"request": request})
+
+
+@app.get("/login", response_class=HTMLResponse)
+async def login_page(request: Request):
+    return templates.TemplateResponse("login.html", {"request": request})
+
+
+@app.post("/login")
+async def login(
+    request: Request,
+    username: str = Form(...),
+    otp: str = Form(...),
+    db: Session = Depends(get_db)
+):
+    client_ip = request.client.host
+    response = RedirectResponse(url="/", status_code=302)
+
+    user = db.query(User).filter_by(username=username).first()
+
+    if user:
+        if not pyotp.TOTP(user.otp).verify(otp):
+            return templates.TemplateResponse("login.html", {"request": request, "error": "Invalid OTP"})
+    else:
+        # Create new user
+        new_user = User(username=username, otp=generate_otp())
+        db.add(new_user)
+        db.commit()
+        user = new_user
+        return HTMLResponse(generate_otp_qr(user))
+
+    # Update or create recognized IP
+    recognized = db.query(RecognizedIP).filter_by(user_id=user.id, ip_address=client_ip).first()
+    if not recognized:
+        db.add(RecognizedIP(user_id=user.id, ip_address=client_ip))
+    else:
+        recognized.last_seen = datetime.now()
+    db.commit()
+
+    response.set_cookie(key="user_id", value=str(user.id), httponly=True)
+    return response
 
 
 # Get available video qualities
@@ -126,6 +172,7 @@ async def download(video_url: str, itag: int):
         stream = yt.streams.get_by_itag(itag)
 
         prepare_response(stream)
+        return None
     except Exception as e:
         logger.error(e)
         return {"error": str(e)}
@@ -184,3 +231,43 @@ def prepare_response(stream):
 def sanitize_filename(filename):
     # This pattern allows letters, digits, spaces, and other specified characters
     return re.sub(r"[^A-Za-z0-9\s\-_~,;:\[\]().]", "", filename)
+
+
+def generate_otp():
+    return pyotp.random_base32()
+
+
+def generate_otp_qr(user: User):
+    otp_secret = user.otp
+
+    # Create OTP URI
+    otp_uri = pyotp.totp.TOTP(otp_secret).provisioning_uri(name=user.username, issuer_name="Tublr")
+
+    # Generate QR code
+    img_str = image_to_str(qrcode.make(otp_uri))
+
+    return f"""
+    <html>
+        <head><title>Register OTP</title></head>
+        <body>
+            <h1>Scan this QR Code with Google Authenticator</h1>
+            <img src="data:image/png;base64,{img_str}" />
+            <p>Or manually enter this code: <b>{otp_secret}</b></p>
+        </body>
+    </html>
+    """
+
+
+def image_to_str(img):
+    buffered = io.BytesIO()
+    img.save(buffered, format="PNG")
+    return base64.b64encode(buffered.getvalue()).decode()
+
+
+if __name__=="__main__":
+    uvicorn.run("main:app",
+                host="0.0.0.0",
+                port=8000,
+                reload=True,
+                log_level="debug",
+                workers=1)

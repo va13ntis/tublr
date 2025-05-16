@@ -1,21 +1,32 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>Login</title>
-</head>
-<body>
-    {% if error %}
-        <p style="color:red;">{{ error }}</p>
-    {% endif %}
-    {% if message %}
-        <p style="color:green;">{{ message }}</p>
-    {% endif %}
+{% extends "base.html" %}
 
-    <form action="/login" method="post">
-        <input type="text" name="username" placeholder="Username" required><br>
-        <input type="text" name="otp" placeholder="OTP"><br>
-        <button type="submit">Login</button>
+{% block content %}
+<div class="bg-white p-8 rounded-2xl shadow-lg w-full max-w-sm">
+    <h2 class="text-2xl font-bold mb-6 text-center text-gray-800">Secure Login</h2>
+
+    <form method="post" action="/login" class="space-y-4">
+        <div>
+            <label class="block text-sm font-medium text-gray-700" for="username">Username</label>
+            <input id="username" name="username" type="text" required
+                class="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500">
+        </div>
+
+        <div>
+            <label class="block text-sm font-medium text-gray-700" for="otp">One-Time Password</label>
+            <input id="otp" name="otp" type="number" inputmode="numeric"
+                class="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500">
+        </div>
+
+        <div>
+            <button type="submit"
+                class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg transition">
+                Log In
+            </button>
+        </div>
     </form>
-</body>
-</html>
+
+    <p class="mt-6 text-center text-sm text-gray-500">
+        Don’t have an account? Just enter your username and OTP to register.
+    </p>
+</div>
+{% endblock content %}
