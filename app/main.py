@@ -74,6 +74,8 @@ async def login(
 
     user = db.query(User).filter_by(username=username).first()
 
+    print(repr(user))
+
     if user:
         if not pyotp.TOTP(user.otp).verify(otp):
             return templates.TemplateResponse("login.html", {"request": request, "error": "Invalid OTP"})
