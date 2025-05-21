@@ -8,13 +8,12 @@ from pathlib import Path
 import pyotp
 import qrcode
 import uvicorn
-from fastapi import FastAPI, HTTPException, Depends, Form
-from fastapi.responses import JSONResponse, StreamingResponse
+from fastapi import FastAPI, HTTPException, Depends, Form, Request
+from fastapi.responses import JSONResponse, StreamingResponse, HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from pytubefix import YouTube
 from sqlalchemy.orm import Session
-from starlette.requests import Request
-from starlette.responses import RedirectResponse, HTMLResponse
+from starlette.middleware.sessions import SessionMiddleware
 from starlette.templating import Jinja2Templates
 
 from app.db import get_db, RecognizedIP, User
@@ -24,8 +23,10 @@ logging.basicConfig(format=FORMAT)
 logger = logging.getLogger(__name__)
 
 BASE_DIR = Path(__file__).resolve().parent
+
 app = FastAPI()
 
+app.add_middleware(SessionMiddleware, secret_key="your-secret-key")
 app.mount("/static", StaticFiles(directory=str(BASE_DIR / "static")), name="static")
 
 templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
@@ -33,7 +34,7 @@ templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
 
 @app.middleware("http")
 async def ip_check_middleware(request: Request, call_next):
-    public_paths = ["/login", "/static", "/available_streams", "/download", "/download_video", "/download_audio"]
+    public_paths = ["/login", "/otp", "/register", "/static", "/available_streams", "/download", "/download_video", "/download_audio"]
     if any(request.url.path.startswith(path) for path in public_paths):
         return await call_next(request)
 
@@ -66,37 +67,61 @@ async def login_page(request: Request):
 async def login(
     request: Request,
     username: str = Form(...),
-    otp: str = Form(...),
     db: Session = Depends(get_db)
 ):
-    client_ip = request.client.host
-    response = RedirectResponse(url="/", status_code=302)
-
     user = db.query(User).filter_by(username=username).first()
 
     if user:
-        if not pyotp.TOTP(user.otp).verify(otp):
-            print(otp)
-            
-            return templates.TemplateResponse("login.html", {"request": request, "error": "Invalid OTP"})
-    else:
-        # Create new user
-        new_user = User(username=username, otp=generate_otp())
-        db.add(new_user)
-        db.commit()
-        user = new_user
-        return HTMLResponse(generate_otp_qr(user))
+        request.session["user_id"] = user.id
+        request.session["totp_secret"] = user.otp
+
+        return RedirectResponse("/otp", status_code=302)
+
+    request.session["username"] = username
+
+    return RedirectResponse("/register", status_code=302)
+
+
+@app.get("/otp", response_class=HTMLResponse)
+async def otp_page(request: Request):
+    return templates.TemplateResponse("otp.html", {"request": request})
+
+
+@app.post("/otp")
+async def verify_otp(
+    request: Request,
+    otp: str = Form(...),
+    db: Session = Depends(get_db)
+):
+    user_id = request.session["user_id"]
+    totp_secret = request.session["totp_secret"]
+    client_ip = request.client.host
+    response = RedirectResponse(url="/", status_code=302)
+
+    if not pyotp.TOTP(totp_secret).verify(otp):
+        return templates.TemplateResponse("otp.html", {"request": request, "error": "Invalid OTP"})
 
     # Update or create recognized IP
-    recognized = db.query(RecognizedIP).filter_by(user_id=user.id, ip_address=client_ip).first()
+    recognized = db.query(RecognizedIP).filter_by(user_id=user_id, ip_address=client_ip).first()
+
     if not recognized:
-        db.add(RecognizedIP(user_id=user.id, ip_address=client_ip))
+        db.add(RecognizedIP(user_id=user_id, ip_address=client_ip))
     else:
         recognized.last_seen = datetime.now()
     db.commit()
 
-    response.set_cookie(key="user_id", value=str(user.id), httponly=True)
+    response.set_cookie(key="user_id", value=str(user_id), httponly=True)
     return response
+
+
+@app.get("/register", response_class=HTMLResponse)
+async def register_page(request: Request):
+    username = request.session["username"]
+    otp_secret = generate_otp()
+    otp_uri = pyotp.totp.TOTP(otp_secret).provisioning_uri(name=username, issuer_name="Tublr")
+    img_str = image_to_str(qrcode.make(otp_uri))
+
+    return templates.TemplateResponse("register.html", {"request": request, "otp_secret": otp_secret, "img_str": img_str})
 
 
 # Get available video qualities
@@ -239,24 +264,21 @@ def generate_otp():
     return pyotp.random_base32()
 
 
-def generate_otp_qr(user: User):
-    otp_secret = user.otp
+def generate_otp_qr(username):
+    otp_secret = generate_otp()
 
     # Create OTP URI
-    otp_uri = pyotp.totp.TOTP(otp_secret).provisioning_uri(name=user.username, issuer_name="Tublr")
+    otp_uri = pyotp.totp.TOTP(otp_secret).provisioning_uri(name=username, issuer_name="Tublr")
 
     # Generate QR code
     img_str = image_to_str(qrcode.make(otp_uri))
 
     return f"""
-    <html>
-        <head><title>Register OTP</title></head>
-        <body>
-            <h1>Scan this QR Code with Google Authenticator</h1>
-            <img src="data:image/png;base64,{img_str}" />
-            <p>Or manually enter this code: <b>{otp_secret}</b></p>
-        </body>
-    </html>
+        <h2 class="text-2xl font-bold mb-6 text-center text-gray-800">
+            Scan this QR Code with Google Authenticator
+        </h2>
+        <img src="data:image/png;base64,{img_str}" />
+        <p>Or manually enter this code: <b>{otp_secret}</b></p>
     """
 
 
@@ -266,10 +288,10 @@ def image_to_str(img):
     return base64.b64encode(buffered.getvalue()).decode()
 
 
-#if __name__=="__main__":
-#    uvicorn.run("main:app",
-#                host="0.0.0.0",
-#                port=8000,
-#                reload=True,
-#                log_level="debug",
-#                workers=1)
+if __name__=="__main__":
+    uvicorn.run("main:app",
+                host="0.0.0.0",
+                port=8000,
+                reload=True,
+                log_level="debug",
+                workers=1)

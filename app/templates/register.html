@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="bg-white p-8 rounded-2xl shadow-lg w-full max-w-sm">
+    <h2 class="text-2xl font-bold mb-6 text-center text-gray-800">
+            Scan this QR Code with Google Authenticator
+    </h2>
+
+    <img src="data:image/png;base64,{{ img_str }}" />
+    <p>Or manually enter this code: <b>{{ otp_secret }}</b></p>
+</div>
+{% endblock content %}
