@@ -8,7 +8,7 @@ from pathlib import Path
 import pyotp
 import qrcode
 import uvicorn
-from fastapi import FastAPI, HTTPException, Depends, Form, Request
+from fastapi import FastAPI, HTTPException, Depends, Form, Request, Response
 from fastapi.responses import JSONResponse, StreamingResponse, HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from pytubefix import YouTube
@@ -34,7 +34,7 @@ templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
 
 @app.middleware("http")
 async def ip_check_middleware(request: Request, call_next):
-    public_paths = ["/login", "/otp", "/register", "/static", "/available_streams", "/download", "/download_video", "/download_audio"]
+    public_paths = ["/favicon.ico", "/login", "/otp", "/register"] #, "/static", "/available_streams", "/download", "/download_video", "/download_audio"]
     if any(request.url.path.startswith(path) for path in public_paths):
         return await call_next(request)
 
@@ -77,9 +77,7 @@ async def login(
 
         return RedirectResponse("/otp", status_code=302)
 
-    request.session["username"] = username
-
-    return RedirectResponse("/register", status_code=302)
+    return templates.TemplateResponse("login.html", {"request": request, "error": "User not found"})
 
 
 @app.get("/otp", response_class=HTMLResponse)
