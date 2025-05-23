@@ -34,7 +34,7 @@ templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
 
 @app.middleware("http")
 async def ip_check_middleware(request: Request, call_next):
-    public_paths = ["/favicon.ico", "/login", "/otp", "/register"] #, "/static", "/available_streams", "/download", "/download_video", "/download_audio"]
+    public_paths = ["/favicon.ico", "/login", "/otp", "/register", "/static"] #, "/available_streams", "/download", "/download_video", "/download_audio"]
     if any(request.url.path.startswith(path) for path in public_paths):
         return await call_next(request)
 
@@ -69,15 +69,21 @@ async def login(
     username: str = Form(...),
     db: Session = Depends(get_db)
 ):
-    user = db.query(User).filter_by(username=username).first()
+    try:
+        user = db.query(User).filter_by(username=username).first()
 
-    if user:
-        request.session["user_id"] = user.id
-        request.session["totp_secret"] = user.otp
+        if user:
+            request.session["user_id"] = user.id
+            request.session["totp_secret"] = user.otp
 
-        return RedirectResponse("/otp", status_code=302)
+            return RedirectResponse("/otp", status_code=302)
 
-    return templates.TemplateResponse("login.html", {"request": request, "error": "User not found"})
+        request.session["username"] = username
+
+        return templates.TemplateResponse("login.html", {"request": request, "username": username, "user_not_found": "true"})
+    except Exception as e:
+        logger.error(e)
+        return templates.TemplateResponse("login.html", {"request": request, "error": e})
 
 
 @app.get("/otp", response_class=HTMLResponse)
@@ -119,8 +125,41 @@ async def register_page(request: Request):
     otp_uri = pyotp.totp.TOTP(otp_secret).provisioning_uri(name=username, issuer_name="Tublr")
     img_str = image_to_str(qrcode.make(otp_uri))
 
+    request.session["otp_secret"] = otp_secret
+
     return templates.TemplateResponse("register.html", {"request": request, "otp_secret": otp_secret, "img_str": img_str})
 
+
+@app.post("/register")
+async def register(
+        request: Request,
+        otp: str = Form(...),
+        db: Session = Depends(get_db)
+):
+    username = request.session["username"]
+    otp_secret = request.session["otp_secret"]
+
+    if not pyotp.TOTP(otp_secret).verify(otp):
+        return templates.TemplateResponse("register.html", {"request": request, "error": "Invalid OTP"})
+
+    # Create new user
+    user = User(username=username, otp=otp_secret)
+    db.add(user)
+    db.commit()
+
+    client_ip = request.client.host
+    response = RedirectResponse(url="/", status_code=302)
+
+    # Update or create recognized IP
+    recognized = db.query(RecognizedIP).filter_by(user_id=user.id, ip_address=client_ip).first()
+    if not recognized:
+        db.add(RecognizedIP(user_id=user.id, ip_address=client_ip))
+    else:
+        recognized.last_seen = datetime.now()
+    db.commit()
+
+    response.set_cookie(key="user_id", value=str(user.id), httponly=True)
+    return response
 
 # Get available video qualities
 @app.get("/available_streams")
@@ -260,24 +299,6 @@ def sanitize_filename(filename):
 
 def generate_otp():
     return pyotp.random_base32()
-
-
-def generate_otp_qr(username):
-    otp_secret = generate_otp()
-
-    # Create OTP URI
-    otp_uri = pyotp.totp.TOTP(otp_secret).provisioning_uri(name=username, issuer_name="Tublr")
-
-    # Generate QR code
-    img_str = image_to_str(qrcode.make(otp_uri))
-
-    return f"""
-        <h2 class="text-2xl font-bold mb-6 text-center text-gray-800">
-            Scan this QR Code with Google Authenticator
-        </h2>
-        <img src="data:image/png;base64,{img_str}" />
-        <p>Or manually enter this code: <b>{otp_secret}</b></p>
-    """
 
 
 def image_to_str(img):
