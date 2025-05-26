@@ -53,11 +53,6 @@ async def ip_check_middleware(request: Request, call_next):
     return RedirectResponse(url="/login")
 
 
-@app.get("/", response_class=HTMLResponse)
-async def home(request: Request):
-    return templates.TemplateResponse("index.html", {"request": request})
-
-
 @app.get("/login", response_class=HTMLResponse)
 async def login_page(request: Request):
     return templates.TemplateResponse("login.html", {"request": request})
@@ -161,9 +156,16 @@ async def register(
     response.set_cookie(key="user_id", value=str(user.id), httponly=True)
     return response
 
-# Get available video qualities
-@app.get("/available_streams")
-async def get_available_streams(video_url: str):
+
+@app.get("/", response_class=HTMLResponse)
+async def home(request: Request):
+    return templates.TemplateResponse("index.html", {"request": request})
+
+
+@app.post("/")
+async def available_streams(request: Request, video_url: str = Form(...)):
+    context = {"request": request, "video_url": video_url}
+
     try:
         logger.info(f"Trying to get available streams from {video_url}")
 
@@ -215,17 +217,17 @@ async def get_available_streams(video_url: str):
             reverse=True,
         )
 
-        return JSONResponse(
-            {
-                "thumbnail_url": yt.thumbnail_url,
-                "video_streams": video_streams,
-                "audio_streams": audio_streams,
-            }
-        )
+        context.update({
+            "thumbnail_url": yt.thumbnail_url,
+            "video_streams": video_streams,
+            "audio_streams": audio_streams,
+        })
 
     except Exception as e:
         logger.error(e)
-        return JSONResponse({"error": str(e)}, status_code=400)
+        context["error"] = str(e)
+
+    return templates.TemplateResponse("index.html", context)
 
 
 # Download by itag
@@ -235,8 +237,8 @@ async def download(video_url: str, itag: int):
         yt = YouTube(video_url)
         stream = yt.streams.get_by_itag(itag)
 
-        prepare_response(stream)
-        return None
+        return prepare_response(stream)
+
     except Exception as e:
         logger.error(e)
         return {"error": str(e)}
