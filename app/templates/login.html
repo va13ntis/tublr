@@ -1,21 +1,41 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>Login</title>
-</head>
-<body>
-    {% if error %}
-        <p style="color:red;">{{ error }}</p>
-    {% endif %}
-    {% if message %}
-        <p style="color:green;">{{ message }}</p>
-    {% endif %}
+{% extends "base.html" %}
 
-    <form action="/login" method="post">
-        <input type="text" name="username" placeholder="Username" required><br>
-        <input type="text" name="otp" placeholder="OTP"><br>
-        <button type="submit">Login</button>
+{% block content %}
+<div class="bg-white p-8 rounded-2xl shadow-lg w-full max-w-sm">
+    <h2 class="text-2xl font-bold mb-6 text-center text-gray-800">Login</h2>
+
+    <form method="post" action="/login" autocomplete="off" class="space-y-4">
+        <div>
+            <label class="block text-sm font-medium text-gray-700" for="username">Username</label>
+            <input id="username" name="username" type="text" value="{{ username or ''}}" required
+                class="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500">
+        </div>
+
+        {% if user_not_found %}
+        <p class="text-sm font-bold mb-4 text-center text-gray-800">
+            User not found. Please register first.
+        </p>
+        {% endif %}
+
+        {% if error %}
+        <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-2 rounded relative mb-4 text-center">
+            {{ error }}
+        </div>
+        {% endif %}
+
+        <div class="flex items-center justify-between text-center">
+            {% if user_not_found and username %}
+            <a href="/register"
+                class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg transition">
+                Register
+            </a>
+            {% else %}
+            <button type="submit"
+                class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg transition">
+                Log In
+            </button>
+            {% endif %}
+        </div>
     </form>
-</body>
-</html>
+</div>
+{% endblock content %}

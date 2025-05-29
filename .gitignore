@@ -1,0 +1,5 @@
+*.db
+
+.venv/
+node_modules/
+app/__pycache__

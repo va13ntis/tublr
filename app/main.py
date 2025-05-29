@@ -1,28 +1,40 @@
+import base64
 import io
 import logging
 import re
 from datetime import datetime
+from pathlib import Path
 
-from fastapi import FastAPI, Request, HTTPException
-from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse, RedirectResponse
+import pyotp
+import qrcode
+import uvicorn
+from fastapi import FastAPI, HTTPException, Depends, Form, Request
+from fastapi.responses import StreamingResponse, HTMLResponse, RedirectResponse
+from fastapi.staticfiles import StaticFiles
 from pytubefix import YouTube
 from sqlalchemy.orm import Session
+from starlette.middleware.sessions import SessionMiddleware
+from starlette.templating import Jinja2Templates
 
-from app.auth import login_page, login
-from app.db import get_db, User, RecognizedIP
-from app.shared import templates
+from app.db import get_db, RecognizedIP, User
 
 FORMAT = '%(asctime)s %(message)s'
 logging.basicConfig(format=FORMAT)
 logger = logging.getLogger(__name__)
 
-# Initialize FastAPI app
+BASE_DIR = Path(__file__).resolve().parent
+
 app = FastAPI()
+
+app.add_middleware(SessionMiddleware, secret_key="your-secret-key")
+app.mount("/static", StaticFiles(directory=str(BASE_DIR / "static")), name="static")
+
+templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
 
 
 @app.middleware("http")
 async def ip_check_middleware(request: Request, call_next):
-    public_paths = ["/login", "/static", "/available_streams", "/download", "/download_video", "/download_audio"]
+    public_paths = ["/favicon.ico", "/login", "/otp", "/register", "/static"] #, "/available_streams", "/download", "/download_video", "/download_audio"]
     if any(request.url.path.startswith(path) for path in public_paths):
         return await call_next(request)
 
@@ -41,19 +53,119 @@ async def ip_check_middleware(request: Request, call_next):
     return RedirectResponse(url="/login")
 
 
-@app.get("/login", response_class=HTMLResponse)(login_page)
-@app.post("/login")(login)
+@app.get("/login", response_class=HTMLResponse)
+async def login_page(request: Request):
+    return templates.TemplateResponse("login.html", {"request": request})
 
 
-# Serve the HTML page
+@app.post("/login")
+async def login(
+    request: Request,
+    username: str = Form(...),
+    db: Session = Depends(get_db)
+):
+    try:
+        user = db.query(User).filter_by(username=username).first()
+
+        if user:
+            request.session["user_id"] = user.id
+            request.session["totp_secret"] = user.otp
+
+            return RedirectResponse("/otp", status_code=302)
+
+        request.session["username"] = username
+
+        return templates.TemplateResponse("login.html", {"request": request, "username": username, "user_not_found": "true"})
+    except Exception as e:
+        logger.error(e)
+        return templates.TemplateResponse("login.html", {"request": request, "error": e})
+
+
+@app.get("/otp", response_class=HTMLResponse)
+async def otp_page(request: Request):
+    return templates.TemplateResponse("otp.html", {"request": request})
+
+
+@app.post("/otp")
+async def verify_otp(
+    request: Request,
+    otp: str = Form(...),
+    db: Session = Depends(get_db)
+):
+    user_id = request.session["user_id"]
+    totp_secret = request.session["totp_secret"]
+    client_ip = request.client.host
+    response = RedirectResponse(url="/", status_code=302)
+
+    if not pyotp.TOTP(totp_secret).verify(otp):
+        return templates.TemplateResponse("otp.html", {"request": request, "error": "Invalid OTP"})
+
+    # Update or create recognized IP
+    recognized = db.query(RecognizedIP).filter_by(user_id=user_id, ip_address=client_ip).first()
+
+    if not recognized:
+        db.add(RecognizedIP(user_id=user_id, ip_address=client_ip))
+    else:
+        recognized.last_seen = datetime.now()
+    db.commit()
+
+    response.set_cookie(key="user_id", value=str(user_id), httponly=True)
+    return response
+
+
+@app.get("/register", response_class=HTMLResponse)
+async def register_page(request: Request):
+    username = request.session["username"]
+    otp_secret = generate_otp()
+    otp_uri = pyotp.totp.TOTP(otp_secret).provisioning_uri(name=username, issuer_name="Tublr")
+    img_str = image_to_str(qrcode.make(otp_uri))
+
+    request.session["otp_secret"] = otp_secret
+
+    return templates.TemplateResponse("register.html", {"request": request, "otp_secret": otp_secret, "img_str": img_str})
+
+
+@app.post("/register")
+async def register(
+        request: Request,
+        otp: str = Form(...),
+        db: Session = Depends(get_db)
+):
+    username = request.session["username"]
+    otp_secret = request.session["otp_secret"]
+
+    if not pyotp.TOTP(otp_secret).verify(otp):
+        return templates.TemplateResponse("register.html", {"request": request, "error": "Invalid OTP"})
+
+    # Create new user
+    user = User(username=username, otp=otp_secret)
+    db.add(user)
+    db.commit()
+
+    client_ip = request.client.host
+    response = RedirectResponse(url="/", status_code=302)
+
+    # Update or create recognized IP
+    recognized = db.query(RecognizedIP).filter_by(user_id=user.id, ip_address=client_ip).first()
+    if not recognized:
+        db.add(RecognizedIP(user_id=user.id, ip_address=client_ip))
+    else:
+        recognized.last_seen = datetime.now()
+    db.commit()
+
+    response.set_cookie(key="user_id", value=str(user.id), httponly=True)
+    return response
+
+
 @app.get("/", response_class=HTMLResponse)
 async def home(request: Request):
     return templates.TemplateResponse("index.html", {"request": request})
 
 
-# Get available video qualities
-@app.get("/available_streams")
-async def get_available_streams(video_url: str):
+@app.post("/")
+async def available_streams(request: Request, video_url: str = Form(...)):
+    context = {"request": request, "video_url": video_url}
+
     try:
         logger.info(f"Trying to get available streams from {video_url}")
 
@@ -105,17 +217,17 @@ async def get_available_streams(video_url: str):
             reverse=True,
         )
 
-        return JSONResponse(
-            {
-                "thumbnail_url": yt.thumbnail_url,
-                "video_streams": video_streams,
-                "audio_streams": audio_streams,
-            }
-        )
+        context.update({
+            "thumbnail_url": yt.thumbnail_url,
+            "video_streams": video_streams,
+            "audio_streams": audio_streams,
+        })
 
     except Exception as e:
         logger.error(e)
-        return JSONResponse({"error": str(e)}, status_code=400)
+        context["error"] = str(e)
+
+    return templates.TemplateResponse("index.html", context)
 
 
 # Download by itag
@@ -125,7 +237,8 @@ async def download(video_url: str, itag: int):
         yt = YouTube(video_url)
         stream = yt.streams.get_by_itag(itag)
 
-        prepare_response(stream)
+        return prepare_response(stream)
+
     except Exception as e:
         logger.error(e)
         return {"error": str(e)}
@@ -184,3 +297,22 @@ def prepare_response(stream):
 def sanitize_filename(filename):
     # This pattern allows letters, digits, spaces, and other specified characters
     return re.sub(r"[^A-Za-z0-9\s\-_~,;:\[\]().]", "", filename)
+
+
+def generate_otp():
+    return pyotp.random_base32()
+
+
+def image_to_str(img):
+    buffered = io.BytesIO()
+    img.save(buffered, format="PNG")
+    return base64.b64encode(buffered.getvalue()).decode()
+
+
+if __name__=="__main__":
+    uvicorn.run("main:app",
+                host="0.0.0.0",
+                port=8000,
+                reload=True,
+                log_level="debug",
+                workers=1)

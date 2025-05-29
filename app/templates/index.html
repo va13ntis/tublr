@@ -1,193 +1,94 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>YouTube downloader</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            text-align: center;
-            margin: 20px;
-            padding: 0;
-        }
-        h1, h2 {
-            color: #333;
-        }
-        form {
-            margin-bottom: 20px;
-        }
-        input[type="text"] {
-            padding: 10px;
-            width: 80%;
-            max-width: 400px;
-            border: 1px solid #ccc;
-            border-radius: 5px;
-            font-size: 16px;
-        }
-        button {
-            padding: 10px 20px;
-            font-size: 16px;
-            color: white;
-            background-color: #007BFF;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-        }
-        button:hover {
-            background-color: #0056b3;
-        }
-        .error-message {
-            color: red;
-            margin-top: 10px;
-            font-size: 14px;
-        }
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 20px;
-        }
-        th, td {
-            border: 1px solid #ddd;
-            padding: 8px;
-            text-align: left;
-        }
-        th {
-            background-color: #f4f4f4;
-        }
-        td button {
-            padding: 5px 10px;
-            font-size: 14px;
-            background-color: #28a745;
-            color: white;
-            border: none;
-            border-radius: 3px;
-            cursor: pointer;
-        }
-        td button:hover {
-            background-color: #218838;
-        }
-        img {
-            margin-top: 10px;
-            margin-bottom: 10px;
-        }
-    </style>
-</head>
-<body>
-    <h1>YouTube downloader</h1>
-    <form id="fetchForm">
-        <input type="text" id="videoUrl" placeholder="Enter YouTube URL" required>
-        <button type="submit">Get</button>
+{% extends "base.html" %}
+
+{% block content %}
+<div class="bg-white p-8 rounded-2xl shadow-lg w-full max-w-2xl mx-auto">
+    {% if video_streams or audio_streams %}
+    <div class="mt-8">
+        <img src="{{ thumbnail_url }}" alt="Video Thumbnail" class="w-full rounded-lg shadow-md mb-6" />
+
+        <div class="flex justify-center flex-wrap gap-4 my-6">
+            <a href="{{ url_for('download_video') }}?video_url={{ video_url | urlencode }}"
+                class="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg transition">
+                Download video
+            </a>
+            <a href="{{ url_for('download_audio') }}?video_url={{ video_url | urlencode }}"
+                class="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg transition">
+                Download audio
+            </a>
+            <a href="/" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg transition">
+                New search
+            </a>
+        </div>
+
+        {% if video_streams %}
+        <h2 class="text-lg font-semibold mt-6 mb-2 text-center">Available video formats</h2>
+        <div class="space-y-4">
+            {% for stream in video_streams %}
+            <div
+                class="border border-gray-200 rounded-lg p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between">
+                <div class="space-y-1 text-sm">
+                    <p><span class="font-medium">Resolution:</span> {{ stream.resolution }}</p>
+                    <p><span class="font-medium">Video Codec:</span> {{ stream.video_codec }}</p>
+                    <p><span class="font-medium">Includes Audio:</span> {{ "Yes" if stream.includes_audio else "No" }}
+                    </p>
+                </div>
+                <div class="mt-4 sm:mt-0 sm:ml-4">
+                    <a href="{{ url_for('download') }}?video_url={{ video_url | urlencode }}&itag={{ stream.itag }}"
+                        class="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded transition text-center block sm:inline-block">
+                        Download
+                    </a>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+
+        {% endif %}
+
+        {% if audio_streams %}
+        <h2 class="text-lg font-semibold mt-8 mb-2 text-center">Available audio streams</h2>
+        <div class="overflow-x-auto">
+            <table class="w-full table-auto border border-gray-200 text-sm">
+                <thead class="bg-gray-100">
+                    <tr>
+                        <th class="px-4 py-2 text-left">Bitrate</th>
+                        <th class="px-4 py-2 text-left">Audio Codec</th>
+                        <th class="px-4 py-2 text-left">Action</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-200">
+                    {% for stream in audio_streams %}
+                    <tr>
+                        <td class="px-4 py-2">{{ stream.bitrate }}</td>
+                        <td class="px-4 py-2">{{ stream.audio_codec }}</td>
+                        <td class="px-4 py-2">
+                            <a href="{{ url_for('download') }}?video_url={{ video_url | urlencode }}&itag={{ stream.itag }}"
+                                class="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg transition">
+                                Download
+                            </a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% endif %}
+    </div>
+    {% else %}
+    <form method="post" action="/" class="space-y-4">
+        <input type="text" name="video_url" placeholder="Enter YouTube URL" value="{{ video_url or '' }}"
+            autocomplete="off" required
+            class="w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500" />
+        <button type="submit"
+            class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg transition">
+            Get
+        </button>
     </form>
 
-    <div id="error" class="error-message" style="display:none;"></div>    
-
-    <div id="streams" style="display:none;">
-        <image id="video-thumbnail"></image>
-
-        <div id="actions"></div>
-
-        <h2>All available formats</h2>
-        <table>
-            <thead>
-                <tr>
-                    <th>Resolution</th>
-                    <th>Video Codec</th>
-                    <th>Includes audio</th>
-                    <th>Action</th>
-                </tr>
-            </thead>
-            <tbody id="videoStreams"></tbody>
-        </table>
-
-        <h2>Available Audio Streams</h2>
-        <table>
-            <thead>
-                <tr>
-                    <th>Bitrate</th>
-                    <th>Audio Codec</th>
-                    <th>Action</th>
-                </tr>
-            </thead>
-            <tbody id="audioStreams"></tbody>
-        </table>
+    {% if error %}
+    <div class="mt-4 p-3 bg-red-100 text-red-800 rounded-md">
+        {{ error }}
     </div>
-
-    <script>
-        const fetchForm = document.getElementById("fetchForm");
-        const videoStreams = document.getElementById("videoStreams");
-        const audioStreams = document.getElementById("audioStreams");
-        const actions = document.getElementById("actions");
-        const streamsDiv = document.getElementById("streams");
-        const thumbnail = document.getElementById("video-thumbnail");
-        const errorDiv = document.getElementById("error");
-
-        fetchForm.onsubmit = async (e) => {
-            e.preventDefault();
-            const videoUrl = document.getElementById("videoUrl").value;
-
-            errorDiv.style.display = "none"; // Hide error message
-            errorDiv.innerHTML = ""; // Clear previous errors
-
-            try {
-                const res = await fetch(`available_streams?video_url=${encodeURIComponent(videoUrl)}`);
-                const data = await res.json();
-
-                if (data.error) {
-                    throw new Error(data.error);
-                }
-
-
-                actions.innerHTML = `
-                    <button onclick="download_video('${videoUrl}')">Download video</button>
-                    <button onclick="download_audio('${videoUrl}')">Download audio</button>
-                `;
-
-                thumbnail.src = data.thumbnail_url
-
-                // Populate video streams table
-                videoStreams.innerHTML = "";
-                data.video_streams.forEach((stream) => {
-                    const row = document.createElement("tr");
-                    row.innerHTML = `
-                        <td>${stream.resolution}</td>
-                        <td>${stream.video_codec}</td>
-                        <td>${stream.includes_audio ? "Yes" : "No"}</td>
-                        <td><button onclick="download('${videoUrl}', ${stream.itag})">Download</button></td>
-                    `;
-                    videoStreams.appendChild(row);
-                });
-
-                // Populate audio streams table
-                audioStreams.innerHTML = "";
-                data.audio_streams.forEach((stream) => {
-                    const row = document.createElement("tr");
-                    row.innerHTML = `
-                        <td>${stream.bitrate}</td>
-                        <td>${stream.audio_codec}</td>
-                        <td><button onclick="download('${videoUrl}', ${stream.itag})">Download</button></td>
-                    `;
-                    audioStreams.appendChild(row);
-                });
-
-                streamsDiv.style.display = "block"; // Show streams section
-            } catch (error) {
-                errorDiv.innerHTML = error.message;
-                errorDiv.style.display = "block"; // Show error message
-            }
-        };
-
-        async function download(videoUrl, itag) {
-            window.location = `download?video_url=${encodeURIComponent(videoUrl)}&itag=${itag}`;
-        }
-
-        async function download_video(videoUrl) {
-            window.location = `download_video?video_url=${encodeURIComponent(videoUrl)}`;
-        }
-
-        async function download_audio(videoUrl) {
-            window.location = `download_audio?video_url=${encodeURIComponent(videoUrl)}`;
-        }
-    </script>
-</body>
-</html>
+    {% endif %}
+    {% endif %}
+</div>
+{% endblock %}
