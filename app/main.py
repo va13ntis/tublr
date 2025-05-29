@@ -8,8 +8,8 @@ from pathlib import Path
 import pyotp
 import qrcode
 import uvicorn
-from fastapi import FastAPI, HTTPException, Depends, Form, Request, Response
-from fastapi.responses import JSONResponse, StreamingResponse, HTMLResponse, RedirectResponse
+from fastapi import FastAPI, HTTPException, Depends, Form, Request
+from fastapi.responses import StreamingResponse, HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from pytubefix import YouTube
 from sqlalchemy.orm import Session
