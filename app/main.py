@@ -2,11 +2,13 @@ import base64
 import io
 import logging
 import re
+import urllib.parse
 from datetime import datetime
 from pathlib import Path
 
 import pyotp
 import qrcode
+import unicodedata
 import uvicorn
 from fastapi import FastAPI, HTTPException, Depends, Form, Request
 from fastapi.responses import StreamingResponse, HTMLResponse, RedirectResponse
@@ -283,7 +285,7 @@ def prepare_response(stream):
 
     headers = {
         "Content-Disposition":
-        f"attachment; filename={sanitize_filename(stream.title)}.{'mp4' if stream.includes_video_track else 'mp3'}"
+        f"attachment; filename*=UTF-8''{sanitize_filename(stream.title)}.{'mp4' if stream.includes_video_track else 'mp3'}"
     }
 
     return StreamingResponse(
@@ -293,10 +295,11 @@ def prepare_response(stream):
     )
 
 
-# Sanitize filename using the improved expression
 def sanitize_filename(filename):
-    # This pattern allows letters, digits, spaces, and other specified characters
-    return re.sub(r"[^A-Za-z0-9\s\-_~,;:\[\]().]", "", filename)
+    value = unicodedata.normalize('NFKC', str(filename))
+    value = re.sub(r'[^\w\s-]', '', value.lower())
+
+    return urllib.parse.quote(re.sub(r'[-\s]+', '-', value).strip('-_'), encoding='utf-8')
 
 
 def generate_otp():
