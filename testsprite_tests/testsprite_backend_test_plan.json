@@ -1,0 +1,52 @@
+[
+  {
+    "id": "TC001",
+    "title": "login page should return html login page",
+    "description": "Verify that a GET request to /login returns the login page HTML with status code 200."
+  },
+  {
+    "id": "TC002",
+    "title": "user login should authenticate username and handle ip recognition",
+    "description": "Test POST /login with a valid username. If the IP is recognized, the user should be redirected to the home page. Otherwise, the user should be redirected to the OTP verification page."
+  },
+  {
+    "id": "TC003",
+    "title": "otp verification page should return html otp page",
+    "description": "Verify that a GET request to /otp returns the OTP verification page HTML with status code 200."
+  },
+  {
+    "id": "TC004",
+    "title": "verify otp should validate otp and register ip address",
+    "description": "Test POST /otp with a valid OTP code. On success, the user should be redirected to the home page. On failure, the OTP page should be returned with an error message."
+  },
+  {
+    "id": "TC005",
+    "title": "registration page should return html registration page with qr code",
+    "description": "Verify that a GET request to /register returns the registration page HTML containing a QR code for OTP setup with status code 200."
+  },
+  {
+    "id": "TC006",
+    "title": "user registration should create new user after otp verification",
+    "description": "Test POST /register with a valid OTP code to register a new user. On success, the user should be redirected to the home page. On failure, the registration page should be returned with an error message."
+  },
+  {
+    "id": "TC007",
+    "title": "home page should return html home page",
+    "description": "Verify that a GET request to / returns the home page HTML for the YouTube downloader with status code 200."
+  },
+  {
+    "id": "TC008",
+    "title": "get available streams should return streams for valid youtube url",
+    "description": "Test POST / with a valid YouTube video URL. The response should include the home page HTML with available video and audio streams listed."
+  },
+  {
+    "id": "TC009",
+    "title": "download by itag should return video or audio stream or 404",
+    "description": "Test GET /download with valid video_url and itag parameters. The endpoint should return the corresponding video or audio stream with status 200, or 404 if the stream is not found."
+  },
+  {
+    "id": "TC010",
+    "title": "download highest resolution video should return video stream or 404",
+    "description": "Test GET /download_video with a valid video_url parameter. The endpoint should return the highest resolution video stream with status 200, or 404 if no video stream is found."
+  }
+]

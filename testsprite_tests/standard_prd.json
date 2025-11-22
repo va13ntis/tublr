@@ -1,0 +1,475 @@
+{
+  "meta": {
+    "project": "Tublr YouTube Downloader",
+    "date": "2025-11-19",
+    "prepared_by": "Software Development Manager"
+  },
+  "product_overview": "Tublr is a FastAPI-based web application that enables users to download YouTube videos and audio streams securely. It features a user-friendly interface styled with Tailwind CSS and robust security with two-factor authentication (2FA) leveraging OTP and QR code setup.",
+  "core_goals": [
+    "Provide a simple and intuitive interface for downloading YouTube video and audio streams.",
+    "Implement secure user authentication with two-factor authentication to protect user accounts and accesses.",
+    "Support multiple download options including highest resolution video, audio-only stream, and selection by stream identifier (itag).",
+    "Maintain recognized IP addresses for streamlined login experience after initial 2FA verification.",
+    "Ensure responsive and reliable backend services using modern Python frameworks and tools."
+  ],
+  "key_features": [
+    "Login page with username authentication and IP recognition to skip 2FA if trusted.",
+    "Two-factor authentication using OTP codes verified via mobile authenticator apps.",
+    "OTP setup during user registration via QR code generation for easy 2FA configuration.",
+    "Home page allowing users to input YouTube URLs and fetch available video/audio streams.",
+    "Download functionality supporting specific stream itags, highest resolution video, and audio-only streams.",
+    "Middleware to enforce authentication and verify recognized user IP addresses.",
+    "Use of SQLite with SQLAlchemy ORM for managing user data, recognized IPs, and authentication states.",
+    "Stylized frontend with Tailwind CSS for a smooth and modern user experience."
+  ],
+  "user_flow_summary": [
+    "User visits the login page and submits their username.",
+    "If their IP is recognized, automatic login redirects to the home page; otherwise, they are prompted for OTP verification.",
+    "New users register by scanning a QR code to set up OTP, then submit an OTP code to finalize registration.",
+    "Once logged in, users enter a YouTube video URL on the home page and receive a list of available streams (video and audio).",
+    "Users select desired stream options to download either by itag, highest video resolution, or audio-only formats.",
+    "Session validation and IP recognition middleware ensure ongoing secure access for authenticated users."
+  ],
+  "validation_criteria": [
+    "Successful user authentication via username and OTP where required.",
+    "Recognition and persistence of trusted IP addresses post successful OTP verification.",
+    "Correct rendering of all pages: login, OTP verification, registration with QR code, and home page with stream listings.",
+    "Accurate retrieval and display of available YouTube streams for valid URLs.",
+    "Correct handling of stream downloads by itag, highest resolution video, and audio-only download endpoints.",
+    "Handling of error cases such as invalid OTP, unrecognized streams, and unauthorized access.",
+    "Responsive UI adhering to Tailwind CSS styling standards for consistency and usability."
+  ],
+  "code_summary": {
+    "tech_stack": [
+      "Python",
+      "FastAPI",
+      "SQLite",
+      "SQLAlchemy",
+      "Jinja2",
+      "Uvicorn",
+      "Tailwind CSS",
+      "PyOTP",
+      "QRCode",
+      "pytubefix"
+    ],
+    "features": [
+      {
+        "name": "Login Page",
+        "description": "Displays the login page for user authentication",
+        "files": [
+          "app/main.py",
+          "app/templates/login.html"
+        ],
+        "api_doc": {
+          "paths": {
+            "/login": {
+              "get": {
+                "summary": "Login page",
+                "description": "Returns the login page HTML",
+                "responses": {
+                  "200": {
+                    "description": "HTML login page",
+                    "content": {
+                      "text/html": {}
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      {
+        "name": "User Login",
+        "description": "Authenticates user by username. If IP is recognized, logs in directly. Otherwise redirects to OTP verification.",
+        "files": [
+          "app/main.py",
+          "app/db.py"
+        ],
+        "api_doc": {
+          "paths": {
+            "/login": {
+              "post": {
+                "summary": "User login",
+                "description": "Authenticates user. If IP is recognized, logs in directly. Otherwise requires OTP verification.",
+                "requestBody": {
+                  "content": {
+                    "application/x-www-form-urlencoded": {
+                      "schema": {
+                        "type": "object",
+                        "required": [
+                          "username"
+                        ],
+                        "properties": {
+                          "username": {
+                            "type": "string",
+                            "description": "Username to login"
+                          }
+                        }
+                      }
+                    }
+                  }
+                },
+                "responses": {
+                  "200": {
+                    "description": "Login page with error message"
+                  },
+                  "302": {
+                    "description": "Redirect to home page or OTP page"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      {
+        "name": "OTP Verification Page",
+        "description": "Displays the OTP verification page for two-factor authentication",
+        "files": [
+          "app/main.py",
+          "app/templates/otp.html"
+        ],
+        "api_doc": {
+          "paths": {
+            "/otp": {
+              "get": {
+                "summary": "OTP verification page",
+                "description": "Returns the OTP verification page HTML",
+                "responses": {
+                  "200": {
+                    "description": "HTML OTP verification page",
+                    "content": {
+                      "text/html": {}
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      {
+        "name": "Verify OTP",
+        "description": "Verifies the OTP code and creates/updates recognized IP address for the user",
+        "files": [
+          "app/main.py",
+          "app/db.py"
+        ],
+        "api_doc": {
+          "paths": {
+            "/otp": {
+              "post": {
+                "summary": "Verify OTP",
+                "description": "Verifies OTP code and registers IP address if valid",
+                "requestBody": {
+                  "content": {
+                    "application/x-www-form-urlencoded": {
+                      "schema": {
+                        "type": "object",
+                        "required": [
+                          "otp"
+                        ],
+                        "properties": {
+                          "otp": {
+                            "type": "string",
+                            "description": "OTP code from authenticator app"
+                          }
+                        }
+                      }
+                    }
+                  }
+                },
+                "responses": {
+                  "200": {
+                    "description": "OTP page with error message on failure"
+                  },
+                  "302": {
+                    "description": "Redirect to home page on success"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      {
+        "name": "Registration Page",
+        "description": "Displays the registration page with QR code for OTP setup",
+        "files": [
+          "app/main.py",
+          "app/templates/register.html"
+        ],
+        "api_doc": {
+          "paths": {
+            "/register": {
+              "get": {
+                "summary": "Registration page",
+                "description": "Returns the registration page HTML with QR code for OTP setup",
+                "responses": {
+                  "200": {
+                    "description": "HTML registration page with QR code",
+                    "content": {
+                      "text/html": {}
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      {
+        "name": "User Registration",
+        "description": "Registers a new user after OTP verification and creates recognized IP entry",
+        "files": [
+          "app/main.py",
+          "app/db.py"
+        ],
+        "api_doc": {
+          "paths": {
+            "/register": {
+              "post": {
+                "summary": "Register new user",
+                "description": "Creates a new user account after OTP verification",
+                "requestBody": {
+                  "content": {
+                    "application/x-www-form-urlencoded": {
+                      "schema": {
+                        "type": "object",
+                        "required": [
+                          "otp"
+                        ],
+                        "properties": {
+                          "otp": {
+                            "type": "string",
+                            "description": "OTP code to verify during registration"
+                          }
+                        }
+                      }
+                    }
+                  }
+                },
+                "responses": {
+                  "200": {
+                    "description": "Registration page with error message on failure"
+                  },
+                  "302": {
+                    "description": "Redirect to home page on success"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      {
+        "name": "Home Page",
+        "description": "Displays the main page for YouTube video URL input",
+        "files": [
+          "app/main.py",
+          "app/templates/index.html"
+        ],
+        "api_doc": {
+          "paths": {
+            "/": {
+              "get": {
+                "summary": "Home page",
+                "description": "Returns the home page HTML for YouTube video downloader",
+                "responses": {
+                  "200": {
+                    "description": "HTML home page",
+                    "content": {
+                      "text/html": {}
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      {
+        "name": "Get Available Streams",
+        "description": "Retrieves available video and audio streams for a YouTube video URL",
+        "files": [
+          "app/main.py"
+        ],
+        "api_doc": {
+          "paths": {
+            "/": {
+              "post": {
+                "summary": "Get available streams",
+                "description": "Fetches available video and audio streams for a YouTube video",
+                "requestBody": {
+                  "content": {
+                    "application/x-www-form-urlencoded": {
+                      "schema": {
+                        "type": "object",
+                        "required": [
+                          "video_url"
+                        ],
+                        "properties": {
+                          "video_url": {
+                            "type": "string",
+                            "description": "YouTube video URL"
+                          }
+                        }
+                      }
+                    }
+                  }
+                },
+                "responses": {
+                  "200": {
+                    "description": "Home page with available streams and video information",
+                    "content": {
+                      "text/html": {}
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      {
+        "name": "Download by ITag",
+        "description": "Downloads video or audio stream by specific itag identifier",
+        "files": [
+          "app/main.py"
+        ],
+        "api_doc": {
+          "paths": {
+            "/download": {
+              "get": {
+                "summary": "Download by ITag",
+                "description": "Downloads video or audio stream using itag identifier",
+                "parameters": [
+                  {
+                    "name": "video_url",
+                    "in": "query",
+                    "required": true,
+                    "schema": {
+                      "type": "string"
+                    },
+                    "description": "YouTube video URL"
+                  },
+                  {
+                    "name": "itag",
+                    "in": "query",
+                    "required": true,
+                    "schema": {
+                      "type": "integer"
+                    },
+                    "description": "Stream itag identifier"
+                  }
+                ],
+                "responses": {
+                  "200": {
+                    "description": "Video or audio file stream",
+                    "content": {
+                      "video/mp4": {},
+                      "audio/mp3": {}
+                    }
+                  },
+                  "404": {
+                    "description": "Stream not found"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      {
+        "name": "Download Highest Resolution Video",
+        "description": "Downloads the highest resolution video available for a YouTube video",
+        "files": [
+          "app/main.py"
+        ],
+        "api_doc": {
+          "paths": {
+            "/download_video": {
+              "get": {
+                "summary": "Download highest resolution video",
+                "description": "Downloads the highest resolution video stream available",
+                "parameters": [
+                  {
+                    "name": "video_url",
+                    "in": "query",
+                    "required": true,
+                    "schema": {
+                      "type": "string"
+                    },
+                    "description": "YouTube video URL"
+                  }
+                ],
+                "responses": {
+                  "200": {
+                    "description": "Video file stream",
+                    "content": {
+                      "video/mp4": {}
+                    }
+                  },
+                  "404": {
+                    "description": "Stream not found"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      {
+        "name": "Download Audio Only",
+        "description": "Downloads audio-only stream from a YouTube video",
+        "files": [
+          "app/main.py"
+        ],
+        "api_doc": {
+          "paths": {
+            "/download_audio": {
+              "get": {
+                "summary": "Download audio only",
+                "description": "Downloads audio-only stream from YouTube video",
+                "parameters": [
+                  {
+                    "name": "video_url",
+                    "in": "query",
+                    "required": true,
+                    "schema": {
+                      "type": "string"
+                    },
+                    "description": "YouTube video URL"
+                  }
+                ],
+                "responses": {
+                  "200": {
+                    "description": "Audio file stream",
+                    "content": {
+                      "audio/mp3": {}
+                    }
+                  },
+                  "404": {
+                    "description": "Stream not found"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      {
+        "name": "IP Check Middleware",
+        "description": "Middleware that checks if user IP is recognized. Redirects to login if not authenticated.",
+        "files": [
+          "app/main.py",
+          "app/db.py"
+        ],
+        "api_doc": {
+          "description": "Middleware component that validates user IP addresses and authentication status"
+        }
+      }
+    ]
+  }
+}

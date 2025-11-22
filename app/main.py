@@ -70,10 +70,24 @@ async def login(
         user = db.query(User).filter_by(username=username).first()
 
         if user:
-            request.session["user_id"] = user.id
-            request.session["totp_secret"] = user.otp
-
-            return RedirectResponse("/otp", status_code=302)
+            client_ip = request.client.host
+            # Check if IP is already recognized for this user
+            recognized_ip = db.query(RecognizedIP).filter_by(user_id=user.id, ip_address=client_ip).first()
+            
+            if recognized_ip:
+                # IP is recognized (trusted device/location) - skip OTP verification
+                # This is by design: users from previously verified IPs don't need to re-verify
+                # OTP is only required for new/unrecognized IP addresses
+                recognized_ip.last_seen = datetime.now()
+                db.commit()
+                response = RedirectResponse(url="/", status_code=302)
+                response.set_cookie(key="user_id", value=str(user.id), httponly=True)
+                return response
+            else:
+                # IP is not recognized - require OTP verification for security
+                request.session["user_id"] = user.id
+                request.session["totp_secret"] = user.otp
+                return RedirectResponse("/otp", status_code=302)
 
         request.session["username"] = username
 
