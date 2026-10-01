@@ -15,6 +15,19 @@ A simple YouTube video downloader built with FastAPI.
 - Python 3.8+
 - npm (for Tailwind CSS only)
 - SQLite (included in Python)
+- ffmpeg (`sudo apt install ffmpeg`), used to join YouTube's separate video and audio streams. It only copies the streams (no re-encoding), so it is light enough for a Raspberry Pi.
+
+## Download settings
+
+Downloads run as background jobs. Files are written to a per-user folder and deleted as soon as they have been sent to the browser. All settings are optional environment variables:
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `TUBLR_DOWNLOAD_DIR` | `./downloads` | Where in-progress downloads are stored (cleared on startup) |
+| `TUBLR_MAX_HEIGHT` | `1080` | Highest video resolution offered |
+| `TUBLR_MAX_JOBS` | `1` | Downloads processed at the same time; others wait in a queue |
+| `TUBLR_JOB_TTL` | `1800` | Seconds before a finished file that was never fetched is deleted |
+| `TUBLR_FFMPEG` | `ffmpeg` | Path to the ffmpeg binary |
 
 ## Installation
 
@@ -55,6 +68,12 @@ npx tailwindcss -i ./app/static/css/input.css -o ./app/static/css/output.css --w
 ```bash
 uvicorn app.main:app --reload
 ```
+
+   To skip login/OTP during local development, set `TUBLR_DEV=1`:
+```bash
+TUBLR_DEV=1 uvicorn app.main:app --reload
+```
+   Never set this in production.
 
 2. Run tests (Work in Progress):
 ```bash
