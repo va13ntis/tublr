@@ -2,76 +2,123 @@
 
 {% block content %}
 <div class="bg-white p-8 rounded-2xl shadow-lg w-full max-w-2xl mx-auto">
-    {% if video_streams or audio_streams %}
-    <div class="mt-8">
-        <img src="{{ thumbnail_url }}" alt="Video Thumbnail" class="w-full rounded-lg shadow-md mb-6" />
+    {% if video_options or audio_options %}
+    <script>
+        async function requestJson(url, options) {
+            const response = await fetch(url, options);
+            const data = await response.json().catch(() => ({}));
+            if (!response.ok || !data.status) {
+                throw new Error(data.detail || `Request failed (${response.status})`);
+            }
+            return data;
+        }
 
-        <div class="flex justify-center flex-wrap gap-4 my-6">
-            <a href="{{ url_for('download_video') }}?video_url={{ video_url | urlencode }}"
-                class="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg transition">
-                Download video
-            </a>
-            <a href="{{ url_for('download_audio') }}?video_url={{ video_url | urlencode }}"
-                class="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg transition">
-                Download audio
-            </a>
-            <a href="/" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg transition">
-                New search
-            </a>
+        function downloader(videoUrl) {
+            return {
+                videoUrl,
+                job: null,
+                get busy() {
+                    return this.job !== null && !['ready', 'error'].includes(this.job.status);
+                },
+                get statusText() {
+                    if (!this.job) return '';
+                    switch (this.job.status) {
+                        case 'queued': return 'Waiting for another download to finish…';
+                        case 'downloading': return `Downloading ${this.job.kind}… ${Math.floor(this.job.progress)}%`;
+                        case 'merging': return 'Merging video and audio…';
+                        case 'ready': return 'Done. Your download is starting.';
+                        case 'error': return `Failed: ${this.job.error}`;
+                    }
+                },
+                async start(kind, itag) {
+                    if (this.busy || !itag) return;
+                    this.job = { kind, status: 'queued', progress: 0 };
+                    const body = new FormData();
+                    body.append('video_url', this.videoUrl);
+                    body.append('kind', kind);
+                    body.append('itag', itag);
+                    try {
+                        this.job = await requestJson('/jobs', { method: 'POST', body });
+                        this.poll();
+                    } catch (e) {
+                        this.fail(e);
+                    }
+                },
+                async poll() {
+                    try {
+                        this.job = await requestJson(`/jobs/${this.job.id}`);
+                    } catch (e) {
+                        return this.fail(e);
+                    }
+                    if (this.job.status === 'ready') {
+                        window.location.href = `/jobs/${this.job.id}/file`;
+                    } else if (this.job.status !== 'error') {
+                        setTimeout(() => this.poll(), 1000);
+                    }
+                },
+                fail(e) {
+                    this.job = { status: 'error', progress: 0, error: e.message || 'Something went wrong' };
+                },
+            };
+        }
+    </script>
+
+    <div x-data='downloader({{ video_url | tojson }})'>
+        <img src="{{ thumbnail_url }}" alt="Video Thumbnail" class="w-full rounded-lg shadow-md mb-4" />
+        <h1 class="text-lg font-semibold text-center mb-6">{{ title }}</h1>
+
+        <div class="space-y-3">
+            {% if video_options %}
+            <div class="flex flex-col sm:flex-row gap-3" x-data="{ itag: '{{ video_options[0].itag }}' }">
+                <select x-model="itag" aria-label="Video resolution" :disabled="busy"
+                    class="flex-1 px-3 py-2 border border-gray-300 rounded-lg bg-white shadow-sm focus:ring-blue-500 focus:border-blue-500">
+                    {% for option in video_options %}
+                    <option value="{{ option.itag }}">{{ option.label }}</option>
+                    {% endfor %}
+                </select>
+                <button type="button" @click="start('video', itag)" :disabled="busy"
+                    :class="busy ? 'opacity-50 cursor-not-allowed' : 'hover:bg-blue-700'"
+                    class="sm:w-48 bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg transition">
+                    Download video
+                </button>
+            </div>
+            {% endif %}
+
+            {% if audio_options %}
+            <div class="flex flex-col sm:flex-row gap-3" x-data="{ itag: '{{ audio_options[0].itag }}' }">
+                <select x-model="itag" aria-label="Audio format" :disabled="busy"
+                    class="flex-1 px-3 py-2 border border-gray-300 rounded-lg bg-white shadow-sm focus:ring-blue-500 focus:border-blue-500">
+                    {% for option in audio_options %}
+                    <option value="{{ option.itag }}">{{ option.label }}</option>
+                    {% endfor %}
+                </select>
+                <button type="button" @click="start('audio', itag)" :disabled="busy"
+                    :class="busy ? 'opacity-50 cursor-not-allowed' : 'hover:bg-blue-700'"
+                    class="sm:w-48 bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg transition">
+                    Download audio
+                </button>
+            </div>
+            {% endif %}
         </div>
 
-        {% if video_streams %}
-        <h2 class="text-lg font-semibold mt-6 mb-2 text-center">Available video formats</h2>
-        <div class="space-y-4">
-            {% for stream in video_streams %}
-            <div
-                class="border border-gray-200 rounded-lg p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between">
-                <div class="space-y-1 text-sm">
-                    <p><span class="font-medium">Resolution:</span> {{ stream.resolution }}</p>
-                    <p><span class="font-medium">Video Codec:</span> {{ stream.video_codec }}</p>
-                    <p><span class="font-medium">Includes Audio:</span> {{ "Yes" if stream.includes_audio else "No" }}
-                    </p>
-                </div>
-                <div class="mt-4 sm:mt-0 sm:ml-4">
-                    <a href="{{ url_for('download') }}?video_url={{ video_url | urlencode }}&itag={{ stream.itag }}"
-                        class="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded transition text-center block sm:inline-block">
-                        Download
-                    </a>
+        <div x-show="job" x-cloak class="mt-6">
+            <div class="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
+                <div class="h-3 rounded-full transition-all duration-500"
+                    :class="{
+                        'bg-blue-600': job && job.status !== 'error',
+                        'bg-red-500': job && job.status === 'error',
+                        'animate-pulse': job && ['queued', 'merging'].includes(job.status),
+                    }"
+                    :style="`width: ${job ? (['merging', 'ready', 'error'].includes(job.status) ? 100 : job.progress) : 0}%`">
                 </div>
             </div>
-            {% endfor %}
+            <p class="mt-2 text-sm text-center"
+                :class="job && job.status === 'error' ? 'text-red-700' : 'text-gray-700'" x-text="statusText"></p>
         </div>
 
-        {% endif %}
-
-        {% if audio_streams %}
-        <h2 class="text-lg font-semibold mt-8 mb-2 text-center">Available audio streams</h2>
-        <div class="overflow-x-auto">
-            <table class="w-full table-auto border border-gray-200 text-sm">
-                <thead class="bg-gray-100">
-                    <tr>
-                        <th class="px-4 py-2 text-left">Bitrate</th>
-                        <th class="px-4 py-2 text-left">Audio Codec</th>
-                        <th class="px-4 py-2 text-left">Action</th>
-                    </tr>
-                </thead>
-                <tbody class="divide-y divide-gray-200">
-                    {% for stream in audio_streams %}
-                    <tr>
-                        <td class="px-4 py-2">{{ stream.bitrate }}</td>
-                        <td class="px-4 py-2">{{ stream.audio_codec }}</td>
-                        <td class="px-4 py-2">
-                            <a href="{{ url_for('download') }}?video_url={{ video_url | urlencode }}&itag={{ stream.itag }}"
-                                class="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg transition">
-                                Download
-                            </a>
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+        <div class="flex justify-center mt-6">
+            <a href="/" class="text-blue-600 hover:text-blue-800 font-semibold">New search</a>
         </div>
-        {% endif %}
     </div>
     {% else %}
     <form method="post" action="/" class="space-y-4">

@@ -1,23 +1,25 @@
+import asyncio
 import base64
 import io
 import logging
-import re
-import urllib.parse
+import os
+from contextlib import asynccontextmanager
 from datetime import datetime
 from pathlib import Path
 
 import pyotp
 import qrcode
-import unicodedata
 import uvicorn
 from fastapi import FastAPI, HTTPException, Depends, Form, Request
-from fastapi.responses import StreamingResponse, HTMLResponse, RedirectResponse
+from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from pytubefix import YouTube
 from sqlalchemy.orm import Session
+from starlette.background import BackgroundTask
 from starlette.middleware.sessions import SessionMiddleware
 from starlette.templating import Jinja2Templates
 
+from app import downloads
 from app.db import get_db, RecognizedIP, User
 
 FORMAT = '%(asctime)s %(message)s'
@@ -26,7 +28,28 @@ logger = logging.getLogger(__name__)
 
 BASE_DIR = Path(__file__).resolve().parent
 
-app = FastAPI()
+DEV_MODE = os.getenv("TUBLR_DEV", "").lower() in ("1", "true", "yes")
+if DEV_MODE:
+    logger.warning("TUBLR_DEV is set: authentication is disabled")
+
+
+async def cleanup_loop():
+    while True:
+        await asyncio.sleep(300)
+        downloads.cleanup_expired()
+
+
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    downloads.reset_download_dir()
+    if not downloads.ffmpeg_available():
+        logger.warning(f"ffmpeg not found ('{downloads.FFMPEG}'): video downloads that need merging with audio will fail")
+    task = asyncio.create_task(cleanup_loop())
+    yield
+    task.cancel()
+
+
+app = FastAPI(lifespan=lifespan)
 
 app.add_middleware(SessionMiddleware, secret_key="your-secret-key")
 app.mount("/static", StaticFiles(directory=str(BASE_DIR / "static")), name="static")
@@ -37,7 +60,7 @@ templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
 @app.middleware("http")
 async def ip_check_middleware(request: Request, call_next):
     public_paths = ["/favicon.ico", "/login", "/otp", "/register", "/static"] #, "/available_streams", "/download", "/download_video", "/download_audio"]
-    if any(request.url.path.startswith(path) for path in public_paths):
+    if DEV_MODE or any(request.url.path.startswith(path) for path in public_paths):
         return await call_next(request)
 
     db: Session = next(get_db())
@@ -57,7 +80,7 @@ async def ip_check_middleware(request: Request, call_next):
 
 @app.get("/login", response_class=HTMLResponse)
 async def login_page(request: Request):
-    return templates.TemplateResponse("login.html", {"request": request})
+    return templates.TemplateResponse(request, "login.html", {"request": request})
 
 
 @app.post("/login")
@@ -91,15 +114,15 @@ async def login(
 
         request.session["username"] = username
 
-        return templates.TemplateResponse("login.html", {"request": request, "username": username, "user_not_found": "true"})
+        return templates.TemplateResponse(request, "login.html", {"request": request, "username": username, "user_not_found": "true"})
     except Exception as e:
         logger.error(e)
-        return templates.TemplateResponse("login.html", {"request": request, "error": e})
+        return templates.TemplateResponse(request, "login.html", {"request": request, "error": e})
 
 
 @app.get("/otp", response_class=HTMLResponse)
 async def otp_page(request: Request):
-    return templates.TemplateResponse("otp.html", {"request": request})
+    return templates.TemplateResponse(request, "otp.html", {"request": request})
 
 
 @app.post("/otp")
@@ -114,7 +137,7 @@ async def verify_otp(
     response = RedirectResponse(url="/", status_code=302)
 
     if not pyotp.TOTP(totp_secret).verify(otp):
-        return templates.TemplateResponse("otp.html", {"request": request, "error": "Invalid OTP"})
+        return templates.TemplateResponse(request, "otp.html", {"request": request, "error": "Invalid OTP"})
 
     # Update or create recognized IP
     recognized = db.query(RecognizedIP).filter_by(user_id=user_id, ip_address=client_ip).first()
@@ -131,14 +154,16 @@ async def verify_otp(
 
 @app.get("/register", response_class=HTMLResponse)
 async def register_page(request: Request):
-    username = request.session["username"]
+    username = request.session.get("username")
+    if not username:
+        return RedirectResponse("/login", status_code=302)
     otp_secret = generate_otp()
     otp_uri = pyotp.totp.TOTP(otp_secret).provisioning_uri(name=username, issuer_name="Tublr")
     img_str = image_to_str(qrcode.make(otp_uri))
 
     request.session["otp_secret"] = otp_secret
 
-    return templates.TemplateResponse("register.html", {"request": request, "otp_secret": otp_secret, "img_str": img_str})
+    return templates.TemplateResponse(request, "register.html", {"request": request, "otp_secret": otp_secret, "img_str": img_str})
 
 
 @app.post("/register")
@@ -151,7 +176,7 @@ async def register(
     otp_secret = request.session["otp_secret"]
 
     if not pyotp.TOTP(otp_secret).verify(otp):
-        return templates.TemplateResponse("register.html", {"request": request, "error": "Invalid OTP"})
+        return templates.TemplateResponse(request, "register.html", {"request": request, "error": "Invalid OTP"})
 
     # Create new user
     user = User(username=username, otp=otp_secret)
@@ -175,145 +200,73 @@ async def register(
 
 @app.get("/", response_class=HTMLResponse)
 async def home(request: Request):
-    return templates.TemplateResponse("index.html", {"request": request})
+    return templates.TemplateResponse(request, "index.html", {"request": request})
 
 
 @app.post("/")
 async def available_streams(request: Request, video_url: str = Form(...)):
     context = {"request": request, "video_url": video_url}
 
+    def load_options():
+        yt = YouTube(video_url)
+        return {
+            "thumbnail_url": yt.thumbnail_url,
+            "title": yt.title,
+            "video_options": downloads.video_options(yt),
+            "audio_options": downloads.audio_options(yt),
+        }
+
     try:
         logger.info(f"Trying to get available streams from {video_url}")
-
-        yt = YouTube(video_url)
-        video_streams = []
-        audio_streams = []
-
-        logger.info(f"Found {len(yt.streams)} streams")
-
-        # Filter video streams
-        for stream in yt.streams.filter(type="video"):
-            if stream.resolution is None:
-                continue
-
-            video_streams.append(
-                {
-                    "resolution": stream.resolution or "N/A",
-                    "video_codec": stream.video_codec or "N/A",
-                    "includes_audio": stream.is_progressive,  # True if includes audio
-                    "itag": stream.itag,
-                }
-            )
-
-        # Filter audio streams
-        for stream in yt.streams.filter(type="audio"):
-            audio_streams.append(
-                {
-                    "bitrate": stream.abr or "N/A",
-                    "audio_codec": stream.audio_codec or "N/A",
-                    "itag": stream.itag,
-                }
-            )
-
-        # Sort video streams by resolution descending
-        video_streams = sorted(
-            video_streams,
-            key=lambda x: (
-                int(x["resolution"].replace("p", "")) if x["resolution"] != "N/A" else 0
-            ),
-            reverse=True,
-        )
-
-        # Sort audio streams by bitrate descending
-        audio_streams = sorted(
-            audio_streams,
-            key=lambda x: (
-                int(x["bitrate"].replace("kbps", "")) if x["bitrate"] != "N/A" else 0
-            ),
-            reverse=True,
-        )
-
-        context.update({
-            "thumbnail_url": yt.thumbnail_url,
-            "video_streams": video_streams,
-            "audio_streams": audio_streams,
-        })
-
+        context.update(await asyncio.to_thread(load_options))
     except Exception as e:
         logger.error(e)
         context["error"] = str(e)
 
-    return templates.TemplateResponse("index.html", context)
+    return templates.TemplateResponse(request, "index.html", context)
 
 
-# Download by itag
-@app.get("/download")
-async def download(video_url: str, itag: int):
-    try:
-        yt = YouTube(video_url)
-        stream = yt.streams.get_by_itag(itag)
-
-        return prepare_response(stream)
-
-    except Exception as e:
-        logger.error(e)
-        return {"error": str(e)}
+def current_user_id(request: Request) -> str:
+    user_id = request.cookies.get("user_id")
+    if user_id:
+        return user_id
+    if DEV_MODE:
+        return "dev"
+    raise HTTPException(status_code=401, detail="Not logged in.")
 
 
-# Download video only
-@app.get("/download_video")
-async def download_video(video_url: str):
-    try:
-        yt = YouTube(video_url)
-        stream = yt.streams.get_highest_resolution()
-
-        return prepare_response(stream)
-
-    except Exception as e:
-        logger.error(e)
-        return {"error": str(e)}
-
-
-# Download audio only
-@app.get("/download_audio")
-async def download_audio(video_url: str):
-    try:
-        yt = YouTube(video_url)
-        stream = yt.streams.get_audio_only()
-
-        return prepare_response(stream)
-
-    except Exception as e:
-        logger.error(e)
-        return {"error": str(e)}
+@app.post("/jobs")
+async def create_job(
+    request: Request,
+    video_url: str = Form(...),
+    kind: str = Form(...),
+    itag: int = Form(...),
+):
+    if kind not in ("video", "audio"):
+        raise HTTPException(status_code=400, detail="kind must be 'video' or 'audio'.")
+    job = downloads.create_job(current_user_id(request), kind, video_url, itag)
+    return job.to_dict()
 
 
-# Prepare response
-def prepare_response(stream):
-    if not stream:
-        raise HTTPException(status_code=404, detail="Stream not found.")
+@app.get("/jobs/{job_id}")
+async def job_status(request: Request, job_id: str):
+    job = downloads.get_job(job_id, current_user_id(request))
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found.")
+    return job.to_dict()
 
-    buffer = io.BytesIO()
-    stream.stream_to_buffer(buffer)
-    buffer.seek(0)
 
-    headers = {
-        "Content-Disposition":
-        f"attachment; filename*=UTF-8''{sanitize_filename(stream.title)}.{'mp4' if stream.includes_video_track else 'mp3'}"
-    }
-
-    return StreamingResponse(
-        buffer,
-        media_type="video/mp4" if stream.includes_video_track else "audio/mp3",
-        headers=headers,
+@app.get("/jobs/{job_id}/file")
+async def job_file(request: Request, job_id: str):
+    job = downloads.get_job(job_id, current_user_id(request))
+    if not job or job.status != "ready" or not job.file_path or not job.file_path.exists():
+        raise HTTPException(status_code=404, detail="File not found.")
+    return FileResponse(
+        job.file_path,
+        filename=job.filename,
+        media_type=job.media_type,
+        background=BackgroundTask(downloads.remove_job, job),
     )
-
-
-def sanitize_filename(filename):
-    value = unicodedata.normalize('NFKC', str(filename))
-    value = re.sub(r'[^\w\s-]', '', value.lower())
-
-    return urllib.parse.quote(re.sub(r'[-\s]+', '-', value).strip('-_'), encoding='utf-8')
 
 
 def generate_otp():
