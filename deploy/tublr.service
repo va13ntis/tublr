@@ -1,0 +1,21 @@
+[Unit]
+Description=Tublr YouTube downloader
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=@USER@
+Group=@GROUP@
+WorkingDirectory=@APP_DIR@
+EnvironmentFile=-/etc/tublr/tublr.env
+ExecStart=@APP_DIR@/.venv/bin/uvicorn app.main:app --host ${TUBLR_HOST} --port ${TUBLR_PORT}
+Restart=on-failure
+RestartSec=5
+
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+
+[Install]
+WantedBy=multi-user.target

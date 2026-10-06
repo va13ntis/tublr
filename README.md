@@ -98,6 +98,26 @@ tublr/
 └── dockerfile           # Docker configuration
 ```
 
+## Running as a service (systemd)
+
+On Linux with systemd (e.g. a Raspberry Pi), after completing the installation steps above:
+
+```bash
+sudo deploy/install-service.sh            # runs as the user who owns the checkout
+sudo deploy/install-service.sh someuser   # or as a specific user
+```
+
+This installs `/etc/systemd/system/tublr.service`, enables it at boot and starts it on port 8000. Settings (host, port, the variables from [Download settings](#download-settings)) live in `/etc/tublr/tublr.env`, which is created on first install with a random `TUBLR_SECRET_KEY` and is never overwritten. After editing it, run `sudo systemctl restart tublr`.
+
+Useful commands:
+
+```bash
+sudo systemctl status tublr
+sudo systemctl restart tublr
+journalctl -u tublr -f        # follow logs
+sudo systemctl disable --now tublr
+```
+
 ## Docker Support
 
 The project includes Docker support. To build and run the container:
