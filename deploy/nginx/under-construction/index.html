@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Under Construction</title>
+<style>
+  :root {
+    --bg: #16181d;
+    --fg: #f2f2f2;
+    --muted: #a3a8b3;
+    --caution: #f5c518;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    display: flex;
+    flex-direction: column;
+    background: radial-gradient(circle at 50% 35%, #232731 0%, var(--bg) 70%);
+    color: var(--fg);
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  .tape {
+    height: 28px;
+    flex-shrink: 0;
+    background: repeating-linear-gradient(-45deg, var(--caution) 0 24px, #111 24px 48px);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, .5);
+  }
+  main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem 1rem;
+    text-align: center;
+  }
+  svg { width: min(360px, 80vw); height: auto; }
+  h1 {
+    margin: 1.25rem 0 .5rem;
+    font-size: clamp(2rem, 6vw, 3.25rem);
+    letter-spacing: .02em;
+    color: var(--caution);
+    text-transform: uppercase;
+  }
+  p { margin: 0; color: var(--muted); font-size: 1.1rem; max-width: 32rem; line-height: 1.5; }
+
+  #raccoon { animation: bob 2.4s ease-in-out infinite; transform-origin: 200px 400px; }
+  #dig { animation: dig 1.2s ease-in-out infinite; transform-origin: 262px 255px; }
+  #beacon { animation: blink 1s steps(1) infinite; }
+  @keyframes bob { 50% { transform: translateY(-4px); } }
+  @keyframes dig { 50% { transform: rotate(-6deg); } }
+  @keyframes blink { 50% { opacity: .25; } }
+  @media (prefers-reduced-motion: reduce) {
+    #raccoon, #dig, #beacon { animation: none; }
+  }
+</style>
+</head>
+<body>
+<div class="tape"></div>
+<main>
+  <svg viewBox="0 0 420 420" role="img" aria-label="A raccoon wearing a hard hat and safety vest, holding a shovel">
+    <defs>
+      <clipPath id="vest-clip">
+        <path d="M138 245 Q200 225 262 245 L272 360 Q200 385 128 360 Z"/>
+      </clipPath>
+    </defs>
+
+    <ellipse cx="210" cy="406" rx="170" ry="10" fill="#000" opacity=".35"/>
+
+    <g id="cone">
+      <rect x="326" y="398" width="84" height="8" rx="2" fill="#e8590c"/>
+      <path d="M342 398 L362 318 L374 318 L394 398 Z" fill="#fd7e14"/>
+      <path d="M352 358 L384 358 L388 374 L348 374 Z" fill="#fff"/>
+      <path d="M358 334 L378 334 L381 346 L355 346 Z" fill="#fff"/>
+      <circle id="beacon" cx="368" cy="312" r="7" fill="#ffd43b"/>
+    </g>
+
+    <g id="raccoon">
+      <path d="M150 350 Q60 365 72 255" fill="none" stroke="#8a8f98" stroke-width="34" stroke-linecap="round"/>
+      <path d="M150 350 Q60 365 72 255" fill="none" stroke="#2b2d33" stroke-width="34" stroke-dasharray="20 20" stroke-dashoffset="-12"/>
+
+      <ellipse cx="200" cy="300" rx="80" ry="90" fill="#8a8f98"/>
+
+      <g>
+        <path d="M138 245 Q200 225 262 245 L272 360 Q200 385 128 360 Z" fill="#fd7e14"/>
+        <g clip-path="url(#vest-clip)" fill="#e9ecef">
+          <rect x="120" y="300" width="160" height="10"/>
+          <rect x="120" y="330" width="160" height="10"/>
+        </g>
+        <path d="M178 236 L200 292 L222 236 Z" fill="#c9ccd1"/>
+        <rect x="150" y="262" width="22" height="16" rx="2" fill="#e8590c"/>
+      </g>
+
+      <ellipse cx="128" cy="310" rx="16" ry="38" fill="#7a7f88" transform="rotate(12 128 310)"/>
+      <circle cx="122" cy="346" r="12" fill="#2b2d33"/>
+
+      <g id="dig">
+        <rect x="294" y="190" width="9" height="185" rx="4" fill="#a0703c" transform="rotate(4 298 280)"/>
+        <path d="M290 372 L320 372 Q324 404 305 414 Q286 404 290 372 Z" fill="#adb5bd" stroke="#6c757d" stroke-width="2"/>
+        <ellipse cx="275" cy="280" rx="16" ry="38" fill="#7a7f88" transform="rotate(-35 275 280)"/>
+        <circle cx="298" cy="300" r="13" fill="#2b2d33"/>
+      </g>
+
+      <rect x="140" y="376" width="50" height="28" rx="10" fill="#5a3a1e"/>
+      <rect x="210" y="376" width="50" height="28" rx="10" fill="#5a3a1e"/>
+      <rect x="140" y="396" width="50" height="8" rx="3" fill="#3b2612"/>
+      <rect x="210" y="396" width="50" height="8" rx="3" fill="#3b2612"/>
+
+      <circle cx="114" cy="142" r="22" fill="#8a8f98"/>
+      <circle cx="114" cy="142" r="11" fill="#2b2d33"/>
+      <circle cx="286" cy="142" r="22" fill="#8a8f98"/>
+      <circle cx="286" cy="142" r="11" fill="#2b2d33"/>
+
+      <ellipse cx="200" cy="172" rx="86" ry="66" fill="#8a8f98"/>
+      <path d="M135 150 Q165 130 190 148" fill="none" stroke="#f1f3f5" stroke-width="7" stroke-linecap="round"/>
+      <path d="M210 148 Q235 130 265 150" fill="none" stroke="#f1f3f5" stroke-width="7" stroke-linecap="round"/>
+      <path d="M118 166 Q160 142 200 166 Q240 142 282 166 Q272 198 236 194 Q214 187 200 197 Q186 187 164 194 Q128 198 118 166 Z" fill="#2b2d33"/>
+
+      <circle cx="165" cy="172" r="11" fill="#fff"/>
+      <circle cx="167" cy="173" r="6" fill="#111"/>
+      <circle cx="169" cy="170" r="2" fill="#fff"/>
+      <circle cx="235" cy="172" r="11" fill="#fff"/>
+      <circle cx="237" cy="173" r="6" fill="#111"/>
+      <circle cx="239" cy="170" r="2" fill="#fff"/>
+
+      <ellipse cx="200" cy="210" rx="38" ry="24" fill="#e9e6df"/>
+      <ellipse cx="200" cy="199" rx="10" ry="7" fill="#1d1e22"/>
+      <path d="M200 205 v7 M188 214 Q200 223 212 214" fill="none" stroke="#1d1e22" stroke-width="3" stroke-linecap="round"/>
+
+      <path d="M110 130 Q112 58 200 55 Q288 58 290 130 Z" fill="#f5c518"/>
+      <path d="M188 57 Q200 54 212 57 L212 130 L188 130 Z" fill="#e0ac00"/>
+      <ellipse cx="200" cy="131" rx="108" ry="13" fill="#e0ac00"/>
+      <path d="M130 100 Q140 75 165 68" fill="none" stroke="#fff3bf" stroke-width="5" stroke-linecap="round" opacity=".7"/>
+    </g>
+  </svg>
+
+  <h1>Under Construction</h1>
+  <p>Our raccoon crew is hard at work on this site. Please check back soon.</p>
+</main>
+<div class="tape"></div>
+</body>
+</html>

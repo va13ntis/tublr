@@ -118,6 +118,20 @@ journalctl -u tublr -f        # follow logs
 sudo systemctl disable --now tublr
 ```
 
+## Under construction page (nginx)
+
+A standalone "under construction" page (a raccoon in a hard hat, no external assets) lives in `deploy/nginx/`. To serve it as the default nginx site on the Pi:
+
+```bash
+sudo apt install nginx
+sudo mkdir -p /var/www/under-construction
+sudo cp deploy/nginx/under-construction/index.html /var/www/under-construction/
+sudo cp deploy/nginx/under-construction.conf /etc/nginx/sites-available/under-construction
+sudo rm -f /etc/nginx/sites-enabled/default
+sudo ln -sf /etc/nginx/sites-available/under-construction /etc/nginx/sites-enabled/
+sudo nginx -t && sudo systemctl reload nginx
+```
+
 ## Docker Support
 
 The project includes Docker support. To build and run the container:
