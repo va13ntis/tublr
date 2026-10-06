@@ -2,7 +2,6 @@ fastapi[standard]
 pydantic
 pytubefix==11.2.0
 aiohttp>=3.12.13
-nodejs-wheel-binaries>=22.20.0
 jinja2
 httpx
 sqlalchemy
