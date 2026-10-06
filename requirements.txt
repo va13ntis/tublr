@@ -5,7 +5,6 @@ aiohttp>=3.12.13
 nodejs-wheel-binaries>=22.20.0
 jinja2
 httpx
-pathlib
 sqlalchemy
 pyotp
 qrcode[pil]
