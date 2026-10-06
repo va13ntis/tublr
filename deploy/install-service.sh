@@ -1,9 +1,12 @@
 #!/usr/bin/env bash
 # Installs Tublr as a systemd service running from this checkout.
 # Usage: sudo deploy/install-service.sh [user]
+if [ -z "${BASH_VERSION:-}" ]; then
+    exec bash "$0" "$@"
+fi
 set -euo pipefail
 
-if [[ $EUID -ne 0 ]]; then
+if [[ $(id -u) -ne 0 ]]; then
     echo "Run as root: sudo $0 [user]" >&2
     exit 1
 fi
